@@ -146,8 +146,8 @@
             "jihoo@example.com",     
             "admin@example.com",
             "test@example.com",
-            // TODO: 여기에 본인의 구글 이메일을 추가해야 로그인이 가능합니다.
-            // 예: "choijihoon9988@gmail.com" 
+            "choijihoon9988@gmail.com",
+            "jihoo0420@gmail.com"
         ];
 
         // ---------------------------------------------------------
@@ -168,8 +168,6 @@
                         if (ALLOWED_EMAILS.includes(email)) {
                             onLogin(result.user);
                         } else {
-                            // 테스트 편의를 위해 일단 에러만 띄우고 로그인은 허용하거나,
-                            // 주석 처리된 부분에 본인 이메일을 추가하세요.
                              setError(`Access Denied: ${email} 은(는) 승인된 계정이 아닙니다.`);
                              window.firebaseAuth.signOut(auth);
                              setIsAuthenticating(false);
