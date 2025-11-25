@@ -13,7 +13,7 @@ window.JACHUNG_COURSE_DATA = {
         {
             title: "Orientation",
             lectures: [
-                { title: "1OT- 국내 최초 일반인을 위한 AI 올인원 강의, 자청입니다", duration: "01:49", videoId: "VIDEO_ID_HERE" },
+                { title: "1OT- 국내 최초 일반인을 위한 AI 올인원 강의, 자청입니다", duration: "01:49", videoId: "https://youtu.be/i7EV8QglcPE" },
                 { title: "2(New) 아예 GPT가 처음인 분을 위한 왕초보 보충 강의", duration: "52:27", videoId: "VIDEO_ID_HERE" },
                 { title: "3(New) 아예 Gemini(구글 AI)가 처음인 분을 위한 왕초보 보충 강의", duration: "49:58", videoId: "VIDEO_ID_HERE" }
             ]
