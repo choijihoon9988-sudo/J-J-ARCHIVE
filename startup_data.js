@@ -14,13 +14,13 @@ window.COURSE_DATA_STARTUP = {
             title: "무자본 창업 풀버전 (Full Version)",
             lectures: [
                 { 
-                    title: "1. 무자본 창업 강의 Part 1 (10시간 통합본)", 
-                    duration: "10:00:00", 
+                    title: "1. 무자본 창업 강의 Part 1 (5시간 40분 통합본)", 
+                    duration: "5:41:15", 
                     videoId: "https://youtu.be/GJdHG52n5gU" 
                 },
                 { 
-                    title: "2. 무자본 창업 강의 Part 2 (12시간 통합본)", 
-                    duration: "12:00:00", 
+                    title: "2. 무자본 창업 강의 Part 2 (5시간 37분 통합본)", 
+                    duration: "5:37:26", 
                     videoId: "https://youtu.be/w0qqAzdGj_g" 
                 }
             ]
