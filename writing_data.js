@@ -8,7 +8,7 @@ window.COURSE_DATA_WRITING = {
     instructor: "Jachung",
     category: 'mindset',
     description: "글쓰기는 단순한 작문이 아닙니다. 뇌의 구조를 바꾸고, 상대를 설득하며, 부를 창조하는 '초사고(Meta-Thinking)'의 도구입니다.",
-    image: "https://images.unsplash.com/photo-1455390582262-044cdead277a?q=80&w=2873&auto=format&fit=crop",
+    image: "./초사고글쓰기.png",
     chapters: [
         {
             title: "Chapter 0. 이 강의는 한국의 역사를 바꾸게 됩니다",

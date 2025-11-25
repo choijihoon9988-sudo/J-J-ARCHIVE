@@ -8,7 +8,7 @@ window.COURSE_DATA_MBTI = {
     instructor: "Jachung",
     category: 'psychology',
     description: "MBTI는 단순한 심리 테스트가 아닙니다. 10초 만에 상대를 파악하고, 연애와 사업에서 필승하는 심리 분석의 정수를 담았습니다.",
-    image: "https://images.unsplash.com/photo-1555431189-0fabf2667795?q=80&w=2828&auto=format&fit=crop",
+    image: "./MBTI.png",
     chapters: [
         {
             title: "Chapter 0. 예언 하나 완벽하게 하겠습니다",

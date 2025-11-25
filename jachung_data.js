@@ -8,7 +8,7 @@ window.JACHUNG_COURSE_DATA = {
     instructor: "Jachung",
     category: 'tech', // 기존 카테고리 ID와 일치시켜야 함
     description: "국내 최초 일반인을 위한 AI 올인원 강의. 당신의 인생 효율을 10배 높이고, 지식을 자동화하며, AI를 통해 돈을 버는 실전 비기(秘技)를 전수합니다.",
-    image: "https://images.unsplash.com/photo-1677442136019-21780ecad995?q=80&w=2832&auto=format&fit=crop", // AI 관련 고화질 이미지
+    image: "./AI.png",
     chapters: [
         {
             title: "Orientation",

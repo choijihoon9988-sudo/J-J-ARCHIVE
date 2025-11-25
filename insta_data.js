@@ -8,7 +8,7 @@ window.COURSE_DATA_INSTA = {
     instructor: "Jachung",
     category: 'business',
     description: "왕초보도 가능한 100만 조회수 공식. 인스타그램 알고리즘의 원리를 파헤치고, 릴스 하나로 사업과 브랜딩을 폭발시키는 실전 가이드입니다.",
-    image: "https://images.unsplash.com/photo-1611162616475-46b635cb6868?q=80&w=2748&auto=format&fit=crop",
+    image: "./인스타그램.png",
     chapters: [
         {
             title: "Orientation",

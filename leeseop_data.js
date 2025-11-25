@@ -8,7 +8,7 @@ window.COURSE_DATA_LEESEOP = {
     instructor: "Lee Seop",
     category: 'psychology', // 기존 카테고리 ID와 일치 (Psychology & Love)
     description: "대한민국 남녀 심리의 본질을 꿰뚫는 통찰. 뜬구름 잡는 이론이 아닌, 현실적이고 이기적인 연애 전략의 모든 것을 담았습니다.",
-    image: "https://images.unsplash.com/photo-1517849845537-4d257902454a?q=80&w=2835&auto=format&fit=crop", // 남녀/심리 관련 분위기 있는 이미지
+    image: "./연애.png",
     chapters: [
         {
             title: "Chapter 0. 오리엔테이션 & 마인드셋",
