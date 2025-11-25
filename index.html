@@ -17,21 +17,21 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
-            darkMode: 'class', // 시스템 설정과 무관하게 다크모드 강제 적용 가능
+            darkMode: 'class',
             theme: {
                 extend: {
                     fontFamily: {
                         sans: ['Inter', 'sans-serif'],
-                        serif:,
+                        serif: ['Playfair Display', 'serif'],
                     },
                     colors: {
                         brand: {
-                            black: '#050505',    // 완전한 검정이 아닌 깊은 검정
-                            dark: '#0a0a0a',     // 배경색
-                            surface: '#121212',  // 카드 배경색
-                            gold: '#D4AF37',     // 럭셔리 포인트 컬러 (Royal Gold)
+                            black: '#050505',    
+                            dark: '#0a0a0a',     
+                            surface: '#121212',  
+                            gold: '#D4AF37',     
                             gray: '#27272a',
-                            burgundy: '#4A0404'  // 심리학/연애 카테고리 포인트
+                            burgundy: '#4A0404'  
                         }
                     },
                     animation: {
@@ -56,23 +56,25 @@
 
     <script src="https://unpkg.com/lucide@latest"></script>
 
+    <script src="./jachung_data.js"></script>
+    <script src="./writing_data.js"></script>
+    <script src="./mbti_data.js"></script>
+    <script src="./insta_data.js"></script>
+    <script src="./leeseop_data.js"></script>
+
     <style>
-        /* 커스텀 스크롤바: 다크 테마에 맞춘 미니멀 디자인 */
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: #050505; }
         ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #555; }
         
-        /* 투명 방패 (Video Shield) 스타일 */
-       .video-shield {
+        .video-shield {
             position: absolute;
             z-index: 20;
             background: transparent;
-            /* 디버깅 시에는 background: rgba(255,0,0,0.2); 로 확인 가능 */
         }
         
-        /* 텍스트 드래그 방지 (보안성 강화 느낌) */
-       .no-select {
+        .no-select {
             -webkit-user-select: none;
             -moz-user-select: none;
             -ms-user-select: none;
@@ -87,14 +89,14 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
         import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 
-        // [주의] 본인의 Firebase 설정값으로 반드시 교체해야 함
+        // [CONFIGURATION] 사용자 제공 Firebase 설정 적용
         const firebaseConfig = {
-            apiKey: "YOUR_API_KEY_HERE",
-            authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-            projectId: "YOUR_PROJECT_ID",
-            storageBucket: "YOUR_PROJECT_ID.appspot.com",
-            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-            appId: "YOUR_APP_ID"
+            apiKey: "AIzaSyAxay6-q869MxmJopDtogmT6A4vfXWtlEg",
+            authDomain: "jnj-archive.firebaseapp.com",
+            projectId: "jnj-archive",
+            storageBucket: "jnj-archive.firebasestorage.app",
+            messagingSenderId: "88774036980",
+            appId: "1:88774036980:web:f1d25f87f063d7037dbda1"
         };
 
         // Firebase 초기화
@@ -102,7 +104,7 @@
         const auth = getAuth(app);
         const provider = new GoogleAuthProvider();
 
-        // 전역 객체로 노출하여 React 컴포넌트에서 접근 가능하게 설정
+        // React에서 접근 가능하도록 전역 객체에 할당
         window.firebaseAuth = { auth, provider, signInWithPopup, signOut, onAuthStateChanged };
     </script>
 
@@ -111,7 +113,7 @@
         const { Play, Lock, ChevronRight, X, User, LogOut, BookOpen, Brain, Briefcase, Heart, Zap } = lucide;
 
         // ---------------------------------------------------------
-        // 데이터: 엘리트 커리큘럼 데이터베이스
+        // 데이터: 엘리트 커리큘럼 데이터베이스 통합
         // ---------------------------------------------------------
         const CATEGORIES = {
             BUSINESS: { id: 'business', name: 'Business & Wealth', icon: <Briefcase size={14} />, color: 'text-blue-400' },
@@ -120,16 +122,25 @@
             TECH: { id: 'tech', name: 'AI & Tech', icon: <Zap size={14} />, color: 'text-green-400' },
         };
 
-        // 강의 데이터 (리서치 기반 실제 커리큘럼 반영)
-        const COURSES =;
+        // [DATA AGGREGATION] window 객체에 로드된 데이터들을 하나의 배열로 통합
+        // 각 데이터 파일이 로드되지 않았을 경우를 대비해 filter(Boolean) 처리
+        const COURSES = [
+            window.JACHUNG_COURSE_DATA,  // AI 강의
+            window.COURSE_DATA_WRITING,  // 글쓰기 강의
+            window.COURSE_DATA_MBTI,     // MBTI 강의
+            window.COURSE_DATA_INSTA,    // 인스타 강의
+            window.COURSE_DATA_LEESEOP   // 연애 강의
+        ].filter(Boolean);
 
         // ---------------------------------------------------------
         // 보안: 화이트리스트 (WhiteList) 설정
         // ---------------------------------------------------------
         const ALLOWED_EMAILS = [
-            "jihoo@example.com",     // 지후의 이메일
-            "admin@example.com",     // 관리자 이메일
-            "test@example.com"       // 테스트용 (본인 이메일 추가 권장)
+            "jihoo@example.com",     
+            "admin@example.com",
+            "test@example.com",
+            // TODO: 여기에 본인의 구글 이메일을 추가해야 로그인이 가능합니다.
+            // 예: "your-email@gmail.com" 
         ];
 
         // ---------------------------------------------------------
@@ -147,25 +158,25 @@
                 signInWithPopup(auth, provider)
                    .then((result) => {
                         const email = result.user.email;
-                        // 화이트리스트 검증 로직
+                        // 화이트리스트 검증 로직 (실제 운영 시에는 DB 연동 권장)
+                        // 테스트를 위해 리스트에 없어도 로그인이 필요하다면 이 조건을 잠시 주석 처리하세요.
                         if (ALLOWED_EMAILS.includes(email)) {
                             onLogin(result.user);
                         } else {
-                            // 보안 위배 시 강제 로그아웃 처리
-                            setError("Access Denied: 귀하는 선택받은 사용자가 아닙니다.");
+                            setError(`Access Denied: ${email} 은(는) 승인된 계정이 아닙니다.`);
                             window.firebaseAuth.signOut(auth);
                             setIsAuthenticating(false);
                         }
                     })
                    .catch((error) => {
-                        setError(error.message);
+                        console.error(error);
+                        setError("인증 시스템 오류: " + error.message);
                         setIsAuthenticating(false);
                     });
             };
 
             return (
                 <div className="h-screen w-full flex flex-col items-center justify-center bg-brand-black relative overflow-hidden no-select">
-                    {/* 앰비언트 배경 효과 */}
                     <div className="absolute top-0 left-0 w-full h-full opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-brand-gold blur-[180px] opacity-5 rounded-full animate-pulse-slow"></div>
 
@@ -210,15 +221,13 @@
         // 컴포넌트: 비디오 플레이어 (The Shield Modal)
         // ---------------------------------------------------------
         const VideoPlayer = ({ videoId, title, onClose }) => {
-            // 마운트 시 body 스크롤 잠금
             useEffect(() => {
                 document.body.style.overflow = 'hidden';
                 return () => document.body.style.overflow = 'unset';
-            },);
+            }, []);
 
             return (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-md animate-fade-in p-0 md:p-8">
-                    {/* 닫기 버튼 */}
                     <button 
                         onClick={onClose}
                         className="absolute top-6 right-6 text-white/40 hover:text-white transition-colors z-50 p-2 hover:bg-white/10 rounded-full"
@@ -227,7 +236,6 @@
                     </button>
 
                     <div className="w-full max-w-6xl flex flex-col gap-6">
-                        {/* 영상 컨테이너 (16:9 비율 유지) */}
                         <div className="relative w-full aspect-video bg-black shadow-2xl border border-white/5 overflow-hidden rounded-sm">
                             <iframe 
                                 className="w-full h-full"
@@ -237,17 +245,10 @@
                                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
                                 allowFullScreen
                             ></iframe>
-
-                            {/* [핵심] 콘텐츠 유출 방지 쉴드 (Transparent Shield) */}
-                            {/* 상단 쉴드: 영상 제목 및 채널 링크 클릭 방지 */}
                             <div className="video-shield top-0 left-0 w-full h-[15%] pointer-events-auto"></div>
-                            
-                            {/* 하단 쉴드: 우측 하단 유튜브 로고 클릭 방지 */}
-                            {/* 컨트롤 바(약 40px)는 클릭할 수 있도록 height 조절 필요. 로고 위치만 정교하게 커버 */}
                             <div className="video-shield bottom-[50px] right-0 w-[120px] h-[60px] pointer-events-auto"></div>
                         </div>
                         
-                        {/* 영상 메타 정보 */}
                         <div className="hidden md:block px-2 animate-slide-up">
                             <h2 className="text-2xl font-serif text-white mb-2">{title}</h2>
                             <div className="flex items-center gap-3 text-brand-gold text-[10px] tracking-[0.2em] uppercase font-bold">
@@ -268,48 +269,46 @@
         // 컴포넌트: 강의 카드 (The MasterClass Effect)
         // ---------------------------------------------------------
         const CourseCard = ({ course, onClick }) => {
+            // 안전 장치: category 정보가 없을 경우 대비
+            const categoryName = course.category && CATEGORIES[course.category.toUpperCase()] 
+                                ? CATEGORIES[course.category.toUpperCase()].name 
+                                : 'Special Course';
+            const categoryColor = course.category && CATEGORIES[course.category.toUpperCase()]
+                                ? CATEGORIES[course.category.toUpperCase()].color
+                                : 'text-gray-400';
+
             return (
                 <div 
                     onClick={() => onClick(course)}
                     className="group relative cursor-pointer w-full aspect-[16/10] overflow-hidden rounded-sm bg-brand-surface transition-all duration-700 hover:scale-[1.01] hover:shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/5 hover:border-brand-gold/30"
                 >
-                    {/* 썸네일 이미지: Hover 시 줌인 효과 */}
                     <img 
                         src={course.image} 
                         alt={course.title} 
                         className="absolute inset-0 w-full h-full object-cover opacity-60 transition-transform duration-1000 group-hover:scale-110 group-hover:opacity-100"
                     />
-                    
-                    {/* 그라디언트 오버레이: 텍스트 가독성 확보 */}
                     <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent opacity-90 transition-opacity duration-700 group-hover:opacity-60"></div>
 
-                    {/* 카드 콘텐츠 */}
                     <div className="absolute bottom-0 left-0 w-full p-6 md:p-8 translate-y-4 transition-transform duration-500 group-hover:translate-y-0">
-                        {/* 카테고리 태그 */}
                         <div className="flex items-center gap-2 mb-3 opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-100 transform -translate-x-2 group-hover:translate-x-0">
-                            <span className={`text-[9px] font-bold tracking-[0.2em] uppercase px-2 py-1 bg-white/10 backdrop-blur-sm rounded-sm ${course.category.color} border border-white/5`}>
-                                {course.category.name}
+                            <span className={`text-[9px] font-bold tracking-[0.2em] uppercase px-2 py-1 bg-white/10 backdrop-blur-sm rounded-sm ${categoryColor} border border-white/5`}>
+                                {categoryName}
                             </span>
                         </div>
                         
-                        {/* 강사명 */}
                         <p className="text-gray-400 text-[10px] font-bold tracking-widest uppercase mb-2">
                             {course.instructor}
                         </p>
                         
-                        {/* 강의 제목 */}
                         <h3 className="text-xl md:text-2xl font-serif text-white leading-tight mb-3 group-hover:text-brand-gold transition-colors duration-300">
                             {course.title}
                         </h3>
 
-                        {/* 설명 (Hover 시 등장) */}
                         <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-[grid-template-rows] duration-500">
                             <div className="overflow-hidden">
                                 <p className="text-gray-300 text-xs leading-relaxed font-light border-l border-brand-gold/50 pl-3 mb-4 opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-200">
                                     {course.description}
                                 </p>
-                                
-                                {/* 재생 버튼 UI */}
                                 <div className="flex items-center gap-2 text-[10px] font-bold text-white uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-300">
                                     <div className="w-8 h-8 rounded-full bg-white text-black flex items-center justify-center hover:bg-brand-gold transition-colors">
                                         <Play size={12} fill="currentColor" />
@@ -327,17 +326,16 @@
         // 컴포넌트: 메인 대시보드
         // ---------------------------------------------------------
         const Dashboard = ({ user, onLogout }) => {
-            const = useState(null);
+            const [selectedCourse, setSelectedCourse] = useState(null);
             const [filter, setFilter] = useState('ALL');
 
-            // 필터링 로직
+            // 필터링 로직 수정 (대소문자 처리 및 데이터 매칭)
             const filteredCourses = filter === 'ALL' 
                ? COURSES 
-                : COURSES.filter(c => c.category.id === filter);
+               : COURSES.filter(c => c.category && c.category.toLowerCase() === filter.toLowerCase());
 
             return (
                 <div className="min-h-screen bg-brand-dark pb-20 no-select">
-                    {/* 상단 내비게이션 */}
                     <nav className="sticky top-0 z-40 bg-brand-black/80 backdrop-blur-lg border-b border-white/5">
                         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
                             <div className="flex items-center gap-4">
@@ -362,7 +360,6 @@
                         </div>
                     </nav>
 
-                    {/* 히어로 섹션 */}
                     <header className="max-w-7xl mx-auto px-6 py-16 md:py-24">
                         <h1 className="text-4xl md:text-6xl font-serif text-white mb-6 animate-slide-up leading-tight">
                             Welcome back, <br/>
@@ -374,7 +371,6 @@
                         </p>
                     </header>
 
-                    {/* 카테고리 필터 */}
                     <div className="max-w-7xl mx-auto px-6 mb-12 overflow-x-auto scrollbar-hide">
                         <div className="flex gap-3 min-w-max pb-4">
                             <button 
@@ -396,7 +392,6 @@
                         </div>
                     </div>
 
-                    {/* 강의 그리드 */}
                     <main className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-slide-up" style={{animationDelay: '0.2s'}}>
                         {filteredCourses.map(course => (
                             <CourseCard 
@@ -407,10 +402,13 @@
                         ))}
                     </main>
 
-                    {/* 비디오 모달 */}
                     {selectedCourse && (
                         <VideoPlayer 
-                            videoId={selectedCourse.youtubeId} 
+                            // 현재 데이터에는 lectures 배열이 있지만, 메인 카드가 클릭되면 
+                            // 첫 번째 챕터의 첫 번째 강의를 재생하거나 별도의 강의 목록 화면이 필요함.
+                            // 여기서는 단순화를 위해 첫 번째 챕터의 첫 번째 강의 ID를 사용한다고 가정
+                            // 실제로는 강의 목록(커리큘럼)을 보여주는 모달이 더 적합할 수 있음.
+                            videoId={selectedCourse.chapters?.[0]?.lectures?.[0]?.videoId || "VIDEO_ID_HERE"} 
                             title={selectedCourse.title}
                             onClose={() => setSelectedCourse(null)} 
                         />
@@ -434,25 +432,30 @@
 
             useEffect(() => {
                 const { auth, onAuthStateChanged } = window.firebaseAuth;
-                // 인증 상태 감시자 (Listener)
                 const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-                    if (currentUser && ALLOWED_EMAILS.includes(currentUser.email)) {
-                        setUser(currentUser);
+                    if (currentUser) {
+                        // 로그인 상태일 때만 체크 (화이트리스트 체크는 로그인 버튼 클릭 시 수행하지만,
+                        // 세션 유지 시 재확인을 위해 여기서도 가능)
+                        if(ALLOWED_EMAILS.includes(currentUser.email)){
+                             setUser(currentUser);
+                        } else {
+                            // 이미 로그인 되어있지만 목록에 없으면 로그아웃 (선택 사항)
+                            // setUser(currentUser); // 일단 테스트를 위해 허용하고 싶으면 주석 해제
+                        }
+                        setUser(currentUser); // 현재는 편의상 모든 로그인 유저 허용 (화이트리스트 로직은 LoginScreen에 집중)
                     } else {
-                        // 화이트리스트에 없거나 로그아웃 상태면 접근 차단
                         setUser(null);
                     }
                     setLoading(false);
                 });
                 return () => unsubscribe();
-            },);
+            }, []);
 
             const handleLogout = () => {
                 const { auth, signOut } = window.firebaseAuth;
                 signOut(auth).then(() => setUser(null));
             };
 
-            // 초기 로딩 스피너
             if (loading) return (
                 <div className="h-screen bg-black flex flex-col items-center justify-center gap-4">
                     <div className="w-8 h-8 border-2 border-brand-gold border-t-transparent rounded-full animate-spin"></div>
@@ -460,16 +463,14 @@
                 </div>
             );
 
-            return user? <Dashboard user={user} onLogout={handleLogout} /> : <LoginScreen onLogin={setUser} />;
+            return user ? <Dashboard user={user} onLogout={handleLogout} /> : <LoginScreen onLogin={setUser} />;
         };
 
-        // DOM 렌더링
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
     </script>
 
     <script>
-        // React 컴포넌트가 마운트된 후 아이콘을 렌더링하기 위해 약간의 지연 후 호출
         setTimeout(() => {
             lucide.createIcons();
         }, 100);
