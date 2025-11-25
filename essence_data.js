@@ -35,7 +35,7 @@ window.ESSENCE_DATA = {
         // 자청 유니버스
         { title: "이상한마케팅", category: "jachung", url: "https://www.youtube.com/@isanghan_marketing", desc: "마케팅의 본질과 실전" },
         { title: "라이프해커 자청", category: "jachung", url: "https://www.youtube.com/@jachung__", desc: "역행자, 인생 공략집" },
-        { title: "GPT 연대경영", category: "jachung", url: "https://www.youtube.com/@연대경영", desc: "AI와 경영의 접목" },
+        { title: "GPT 연대경영", category: "jachung", url: "https://www.youtube.com/@GPT연대경영", desc: "AI와 경영의 접목" },
 
         // 비즈니스 통찰력
         { title: "일터뷰", category: "business", url: "https://www.youtube.com/@---_---", desc: "일하는 사람들의 인터뷰" },

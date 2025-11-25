@@ -166,6 +166,7 @@
             Save: ({size=20, className}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>,
             Youtube: ({size=20, className}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33z"></path><polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02"></polygon></svg>,
             Filter: ({size=20, className}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>,
+            Plus: ({size=20, className}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>,
         };
 
         // --- Config & Data ---
@@ -688,7 +689,7 @@
                                         >
                                             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></div>
                                             <Icons.RefreshCw size={20} className={isSpinning ? 'animate-spin' : ''} />
-                                            <span>{isSpinning ? 'Analying...' : 'SPIN !'}</span>
+                                            <span>{isSpinning ? 'Analyzing...' : 'SPIN !'}</span>
                                         </button>
                                         <button onClick={onClose} className="text-sm text-toss-grey500 hover:text-white transition-colors py-2">
                                             나중에 열어보기
@@ -976,7 +977,7 @@
         };
 
         // --- Component: Essence View (New Feature) ---
-        const EssenceView = () => {
+        const EssenceView = ({ capturedChannels = [] }) => {
             const [filter, setFilter] = useState('all');
             
             const filteredChannels = useMemo(() => {
@@ -996,6 +997,36 @@
                         <h2 className="text-3xl font-bold text-toss-black mb-2">본질 강화</h2>
                         <p className="text-toss-grey600">알고리즘의 방해 없이, 오직 성장에만 집중하세요.</p>
                      </div>
+
+                    {/* Captured Channels Section */}
+                    {capturedChannels.length > 0 && (
+                        <div className="mb-12 p-6 bg-yellow-50 rounded-2xl border border-yellow-200 animate-slide-up">
+                            <h3 className="text-xl font-bold text-toss-black mb-4 flex items-center gap-2">
+                                <Icons.Save size={20} className="text-yellow-600"/>
+                                <span>임시 캡쳐된 채널 ({capturedChannels.length}개)</span>
+                            </h3>
+                            <p className="text-sm text-toss-grey700 mb-4">
+                                이 채널들은 `essence_data.js` 파일에 반영되기 전까지 임시 저장소(브라우저)에 보관됩니다.
+                            </p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                {capturedChannels.map((channel, index) => {
+                                    const catInfo = getCategoryInfo(channel.category);
+                                    return (
+                                        <div key={index} className="bg-white p-4 rounded-xl border border-yellow-300 shadow-sm">
+                                            <div className="flex justify-between items-start">
+                                                <h4 className="font-bold text-toss-black text-sm line-clamp-1">{channel.title}</h4>
+                                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide ${catInfo?.color || 'bg-gray-100 text-gray-600'}`}>
+                                                    {catInfo?.name || channel.category}
+                                                </span>
+                                            </div>
+                                            <p className="text-[11px] text-toss-grey500 mt-1 line-clamp-2">{channel.desc}</p>
+                                            <a href={channel.url} target="_blank" className="text-[10px] text-toss-blue underline mt-2 block truncate">{channel.url}</a>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        </div>
+                    )}
 
                     {/* Filter Bar */}
                     <div className="mb-8 overflow-x-auto scrollbar-hide pb-2">
@@ -1055,6 +1086,113 @@
             );
         };
 
+        // --- Component: Capture Modal for Essence Channels ---
+        const CaptureModal = ({ categories, onSave, onClose }) => {
+            const [url, setUrl] = useState('');
+            const [title, setTitle] = useState('');
+            const [desc, setDesc] = useState('');
+            const [category, setCategory] = useState(categories[0]?.id || 'all');
+            const [error, setError] = useState('');
+
+            const handleSubmit = () => {
+                const urlRegex = /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/.+/i;
+                if (!urlRegex.test(url)) {
+                    setError('유효한 YouTube URL을 입력해주세요.');
+                    return;
+                }
+                if (!title || !desc) {
+                    setError('채널 이름과 설명을 모두 입력해주세요.');
+                    return;
+                }
+                
+                setError('');
+                onSave({ url, title, desc, category });
+                onClose();
+            };
+
+            return (
+                <div className="fixed inset-0 z-[70] flex items-end md:items-center justify-center p-0 md:p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+                    <div className="w-full max-w-lg bg-white rounded-t-2xl md:rounded-3xl shadow-floating overflow-hidden flex flex-col animate-slide-up">
+                        <div className="p-6 border-b border-toss-grey200 flex justify-between items-center shrink-0">
+                            <h3 className="text-xl font-bold text-toss-black">아하 모먼트 캡쳐</h3>
+                            <button onClick={onClose} className="p-2 text-toss-grey600 hover:bg-toss-grey100 rounded-full">
+                                <Icons.X size={20} />
+                            </button>
+                        </div>
+                        
+                        <div className="p-6 space-y-4 custom-scroll max-h-[80vh] md:max-h-[60vh] flex-1 overflow-y-auto">
+                            <p className="text-sm text-toss-grey600">유튜브에서 찾은 인사이트 채널을 임시 저장하세요. 페이지 관리 시 DB로 반영됩니다.</p>
+                            
+                            {error && (
+                                <div className="p-3 bg-red-50 border border-red-200 text-red-500 text-sm rounded-xl font-medium">
+                                    {error}
+                                </div>
+                            )}
+
+                            {/* Channel URL */}
+                            <div>
+                                <label className="block text-xs font-bold text-toss-grey700 mb-1">YouTube 채널 URL</label>
+                                <input 
+                                    type="url"
+                                    value={url}
+                                    onChange={(e) => {setUrl(e.target.value); setError('');}}
+                                    placeholder="https://www.youtube.com/@channelname" 
+                                    className="w-full px-4 py-3 border border-toss-grey200 rounded-xl focus:ring-1 focus:ring-toss-blue focus:border-toss-blue text-sm"
+                                />
+                            </div>
+
+                            {/* Channel Title */}
+                            <div>
+                                <label className="block text-xs font-bold text-toss-grey700 mb-1">채널 이름</label>
+                                <input 
+                                    type="text"
+                                    value={title}
+                                    onChange={(e) => {setTitle(e.target.value); setError('');}}
+                                    placeholder="예: 곽상빈의 천재혁명" 
+                                    className="w-full px-4 py-3 border border-toss-grey200 rounded-xl focus:ring-1 focus:ring-toss-blue focus:border-toss-blue text-sm"
+                                />
+                            </div>
+
+                            {/* Channel Description */}
+                            <div>
+                                <label className="block text-xs font-bold text-toss-grey700 mb-1">설명 (Desc)</label>
+                                <textarea
+                                    value={desc}
+                                    onChange={(e) => {setDesc(e.target.value); setError('');}}
+                                    placeholder="이 채널에서 어떤 통찰을 얻을 수 있는지 간단히 요약해주세요." 
+                                    className="w-full h-20 px-4 py-3 border border-toss-grey200 rounded-xl focus:ring-1 focus:ring-toss-blue focus:border-toss-blue text-sm resize-none"
+                                ></textarea>
+                            </div>
+
+                            {/* Category Selection */}
+                            <div>
+                                <label className="block text-xs font-bold text-toss-grey700 mb-1">카테고리 지정</label>
+                                <select
+                                    value={category}
+                                    onChange={(e) => setCategory(e.target.value)}
+                                    className="w-full px-4 py-3 border border-toss-grey200 rounded-xl focus:ring-1 focus:ring-toss-blue focus:border-toss-blue text-sm bg-white"
+                                >
+                                    {categories.map(cat => (
+                                        <option key={cat.id} value={cat.id}>{cat.name}</option>
+                                    ))}
+                                </select>
+                                <p className="text-[10px] text-toss-grey400 mt-1">새 카테고리 추가는 DB 파일 수정 시 수동으로 반영해야 합니다.</p>
+                            </div>
+                        </div>
+                        
+                        <div className="p-4 border-t border-toss-grey200 shrink-0">
+                            <button 
+                                onClick={handleSubmit}
+                                className="w-full py-3 bg-toss-blue text-white rounded-xl font-bold hover:bg-blue-600 transition-colors"
+                            >
+                                캡쳐하고 임시 저장하기
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
 
         // --- Component: Dashboard ---
         const Dashboard = ({ user, onLogout }) => {
@@ -1066,6 +1204,8 @@
             // New States for Features
             const [showSlotMachine, setShowSlotMachine] = useState(true);
             const [searchQuery, setSearchQuery] = useState('');
+            // New state for capture modal
+            const [showCaptureModal, setShowCaptureModal] = useState(false);
 
             // Global Note State
             const [userNotes, setUserNotes] = useState(() => {
@@ -1077,6 +1217,25 @@
                     return {};
                 }
             });
+
+            // New state for captured channels, using local storage
+            const [capturedChannels, setCapturedChannels] = useState(() => {
+                try {
+                    const saved = localStorage.getItem('jnj_captured_channels');
+                    return saved ? JSON.parse(saved) : [];
+                } catch (e) {
+                    console.error("Failed to load captured channels", e);
+                    return [];
+                }
+            });
+
+            const handleSaveCapturedChannel = (channelData) => {
+                setCapturedChannels(prev => {
+                    const newChannels = [...prev, channelData];
+                    localStorage.setItem('jnj_captured_channels', JSON.stringify(newChannels));
+                    return newChannels;
+                });
+            };
 
             const handleSaveNote = (videoId, content) => {
                 setUserNotes(prev => {
@@ -1145,6 +1304,7 @@
 
             return (
                 <div className="min-h-screen pb-20 bg-toss-bg relative">
+                    
                     {/* Floating Action Button for Slot Machine */}
                     {currentTab === 'HOME' && !showSlotMachine && (
                         <button 
@@ -1153,6 +1313,17 @@
                             title="오늘은 무엇을 공부할까요?"
                         >
                             <Icons.Zap size={24} className="group-hover:text-yellow-300 transition-colors" />
+                        </button>
+                    )}
+
+                    {/* Floating Action Button for Capture Modal (NEW) */}
+                    {currentTab === 'ESSENCE' && (
+                        <button 
+                            onClick={() => setShowCaptureModal(true)}
+                            className="fixed bottom-6 right-6 z-50 w-14 h-14 bg-toss-blue text-white rounded-full shadow-floating flex items-center justify-center hover:scale-110 transition-transform duration-300 group md:bottom-6"
+                            title="새 채널 캡쳐하기"
+                        >
+                            <Icons.Plus size={24} className="group-hover:rotate-90 transition-transform duration-300" />
                         </button>
                     )}
 
@@ -1348,7 +1519,7 @@
                         </div>
                     ) : (
                         <div className="pt-8">
-                            <EssenceView />
+                            <EssenceView capturedChannels={capturedChannels} />
                         </div>
                     )}
 
@@ -1359,6 +1530,14 @@
                             notes={userNotes}
                             onSaveNote={handleSaveNote}
                             onClose={() => { setSelectedCourse(null); setRecommendedLecture(null); }} 
+                        />
+                    )}
+
+                    {showCaptureModal && (
+                        <CaptureModal
+                            categories={ESSENCE_DATA.categories}
+                            onSave={handleSaveCapturedChannel}
+                            onClose={() => setShowCaptureModal(false)}
                         />
                     )}
 
