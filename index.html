@@ -268,14 +268,21 @@
             }, [userId]);
 
             const saveChannel = (channelData) => {
-                 if (!userId || !window.firebaseDB) return;
+                 if (!userId || !window.firebaseDB) {
+                     alert("데이터베이스 연결 중입니다. 잠시 후 다시 시도해주세요.");
+                     return;
+                 }
                  const { db, ref, push } = window.firebaseDB;
                  const channelsRef = ref(db, `captured_channels/${userId.replace(/[.#$/[\]]/g, '_')}`);
-                 // Use push() to create a unique ID for the new channel
+                 
                  push(channelsRef, {
                     url: channelData.url,
                     category: channelData.category,
                     timestamp: Date.now()
+                 }).then(() => {
+                     alert("성공적으로 저장되었습니다.");
+                 }).catch((error) => {
+                     alert("저장에 실패했습니다: " + error.message);
                  });
             };
 
@@ -1130,14 +1137,6 @@
                             ))}
                         </div>
                     </div>
-
-                    {/* Loading Indicator for Channels */}
-                    {capturedChannelsLoading && (
-                        <div className="text-center py-4 text-toss-grey500 text-sm">
-                            <span className="w-4 h-4 border-2 border-toss-grey300 border-t-toss-grey600 rounded-full animate-spin inline-block mr-2"></span>
-                            채널 목록을 불러오는 중...
-                        </div>
-                    )}
 
                     {/* Grid */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
