@@ -11,28 +11,27 @@
 
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
     
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
+    <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
-            darkMode: 'class',
+            darkMode: 'class', // 시스템 설정과 무관하게 다크모드 강제 적용 가능
             theme: {
                 extend: {
                     fontFamily: {
                         sans: ['Inter', 'sans-serif'],
-                        serif: ['Playfair Display', 'serif'],
+                        serif:,
                     },
                     colors: {
                         brand: {
-                            black: '#050505',
-                            dark: '#0a0a0a',
-                            surface: '#121212',
-                            gold: '#D4AF37',
+                            black: '#050505',    // 완전한 검정이 아닌 깊은 검정
+                            dark: '#0a0a0a',     // 배경색
+                            surface: '#121212',  // 카드 배경색
+                            gold: '#D4AF37',     // 럭셔리 포인트 컬러 (Royal Gold)
                             gray: '#27272a',
-                            burgundy: '#4A0404'
+                            burgundy: '#4A0404'  // 심리학/연애 카테고리 포인트
                         }
                     },
                     animation: {
@@ -55,34 +54,30 @@
         }
     </script>
 
-    <script src="./jachung_data.js"></script>
-    <script src="./mbti_data.js"></script>
-    <script src="./insta_data.js"></script>
-    <script src="./writing_data.js"></script>
-    <script src="./leeseop_data.js"></script> 
-    
+    <script src="https://unpkg.com/lucide@latest"></script>
+
     <style>
+        /* 커스텀 스크롤바: 다크 테마에 맞춘 미니멀 디자인 */
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: #050505; }
         ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #555; }
         
-        .no-select {
+        /* 투명 방패 (Video Shield) 스타일 */
+       .video-shield {
+            position: absolute;
+            z-index: 20;
+            background: transparent;
+            /* 디버깅 시에는 background: rgba(255,0,0,0.2); 로 확인 가능 */
+        }
+        
+        /* 텍스트 드래그 방지 (보안성 강화 느낌) */
+       .no-select {
             -webkit-user-select: none;
             -moz-user-select: none;
             -ms-user-select: none;
             user-select: none;
         }
-
-        .scrollbar-hide {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
-        .scrollbar-hide::-webkit-scrollbar {
-            display: none;
-        }
-        
-        body { background-color: #050505; color: white; }
     </style>
 </head>
 <body class="bg-brand-black text-white antialiased overflow-x-hidden selection:bg-brand-gold selection:text-black">
@@ -92,467 +87,392 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
         import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 
+        // [주의] 본인의 Firebase 설정값으로 반드시 교체해야 함
         const firebaseConfig = {
-            apiKey: "AIzaSyAxay6-q869MxmJopDtogmT6A4vfXWtlEg",
-            authDomain: "jnj-archive.firebaseapp.com",
-            projectId: "jnj-archive",
-            storageBucket: "jnj-archive.firebasestorage.app",
-            messagingSenderId: "88774036980",
-            appId: "1:88774036980:web:f1d25f87f063d7037dbda1"
+            apiKey: "YOUR_API_KEY_HERE",
+            authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_PROJECT_ID.appspot.com",
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+            appId: "YOUR_APP_ID"
         };
 
-        try {
-            const app = initializeApp(firebaseConfig);
-            const auth = getAuth(app);
-            const provider = new GoogleAuthProvider();
-            window.firebaseAuth = { auth, provider, signInWithPopup, signOut, onAuthStateChanged, isReady: true };
-            console.log("Firebase initialized successfully");
-        } catch (e) {
-            console.error("Firebase Initialization Error:", e);
-            window.firebaseAuth = { error: e };
-        }
+        // Firebase 초기화
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const provider = new GoogleAuthProvider();
+
+        // 전역 객체로 노출하여 React 컴포넌트에서 접근 가능하게 설정
+        window.firebaseAuth = { auth, provider, signInWithPopup, signOut, onAuthStateChanged };
     </script>
 
     <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+        const { Play, Lock, ChevronRight, X, User, LogOut, BookOpen, Brain, Briefcase, Heart, Zap } = lucide;
+
         // ---------------------------------------------------------
-        // [중요] 앱 마운트 대기 함수 (검은 화면 방지)
+        // 데이터: 엘리트 커리큘럼 데이터베이스
         // ---------------------------------------------------------
-        function mountApp() {
-            // 라이브러리가 로드되었는지 확인 (lucide, React, ReactDOM)
-            if (!window.lucide || !window.React || !window.ReactDOM) {
-                console.log("Waiting for libraries...");
-                setTimeout(mountApp, 50); // 50ms 후 다시 시도
-                return;
-            }
-            startReactApp();
-        }
+        const CATEGORIES = {
+            BUSINESS: { id: 'business', name: 'Business & Wealth', icon: <Briefcase size={14} />, color: 'text-blue-400' },
+            MINDSET: { id: 'mindset', name: 'Hyper-Thinking', icon: <Brain size={14} />, color: 'text-purple-400' },
+            PSYCHOLOGY: { id: 'psychology', name: 'Psychology & Love', icon: <Heart size={14} />, color: 'text-brand-burgundy' },
+            TECH: { id: 'tech', name: 'AI & Tech', icon: <Zap size={14} />, color: 'text-green-400' },
+        };
 
-        function startReactApp() {
-            const { useState, useEffect, useRef } = React;
+        // 강의 데이터 (리서치 기반 실제 커리큘럼 반영)
+        const COURSES =;
 
-            // ---------------------------------------------------------
-            // [Fix] 아이콘 래퍼: Vanilla Lucide -> React Component 변환
-            // 이유: window.lucide에는 React 컴포넌트가 직접 들어있지 않으므로,
-            // 이를 React 요소로 변환해주는 '어댑터'가 필요합니다.
-            // ---------------------------------------------------------
-            const LucideIcon = ({ name, size = 24, color = "currentColor", className = "", ...props }) => {
-                const iconDef = window.lucide.icons ? window.lucide.icons[name] : null;
-                if (!iconDef) {
-                    console.warn(`Icon not found: ${name}`);
-                    return null;
-                }
+        // ---------------------------------------------------------
+        // 보안: 화이트리스트 (WhiteList) 설정
+        // ---------------------------------------------------------
+        const ALLOWED_EMAILS = [
+            "jihoo@example.com",     // 지후의 이메일
+            "admin@example.com",     // 관리자 이메일
+            "test@example.com"       // 테스트용 (본인 이메일 추가 권장)
+        ];
+
+        // ---------------------------------------------------------
+        // 컴포넌트: 로그인 화면 (The Gate)
+        // ---------------------------------------------------------
+        const LoginScreen = ({ onLogin }) => {
+            const [error, setError] = useState(null);
+            const [isAuthenticating, setIsAuthenticating] = useState(false);
+
+            const handleSignIn = () => {
+                setIsAuthenticating(true);
+                setError(null);
+                const { auth, provider, signInWithPopup } = window.firebaseAuth;
                 
-                // lucide.icons[name] 구조: ["svg", {attrs}, [children]]
-                const [tag, attrs, children] = iconDef;
-                
-                return React.createElement(tag, {
-                    ...attrs,
-                    width: size,
-                    height: size,
-                    stroke: color,
-                    className: className,
-                    ...props
-                }, children.map(([childTag, childAttrs], index) => 
-                    React.createElement(childTag, { ...childAttrs, key: index })
-                ));
-            };
-
-            // 필요한 아이콘들을 개별 컴포넌트로 정의 (어댑터 연결)
-            const Play = (props) => <LucideIcon name="Play" {...props} />;
-            const Lock = (props) => <LucideIcon name="Lock" {...props} />;
-            const ChevronRight = (props) => <LucideIcon name="ChevronRight" {...props} />;
-            const ChevronDown = (props) => <LucideIcon name="ChevronDown" {...props} />;
-            const X = (props) => <LucideIcon name="X" {...props} />;
-            const User = (props) => <LucideIcon name="User" {...props} />;
-            const LogOut = (props) => <LucideIcon name="LogOut" {...props} />;
-            const BookOpen = (props) => <LucideIcon name="BookOpen" {...props} />;
-            const Brain = (props) => <LucideIcon name="Brain" {...props} />;
-            const Briefcase = (props) => <LucideIcon name="Briefcase" {...props} />;
-            const Heart = (props) => <LucideIcon name="Heart" {...props} />;
-            const Zap = (props) => <LucideIcon name="Zap" {...props} />;
-            const ExternalLink = (props) => <LucideIcon name="ExternalLink" {...props} />;
-            const Shield = (props) => <LucideIcon name="Shield" {...props} />;
-            const AlertTriangle = (props) => <LucideIcon name="AlertTriangle" {...props} />;
-
-
-            // ---------------------------------------------------------
-            // 데이터 통합 로직
-            // ---------------------------------------------------------
-            const CATEGORIES = {
-                BUSINESS: { id: 'business', name: 'Business & Wealth', icon: <Briefcase size={14} />, color: 'text-blue-400' },
-                MINDSET: { id: 'mindset', name: 'Hyper-Thinking', icon: <Brain size={14} />, color: 'text-purple-400' },
-                PSYCHOLOGY: { id: 'psychology', name: 'Psychology & Love', icon: <Heart size={14} />, color: 'text-brand-burgundy' },
-                TECH: { id: 'tech', name: 'AI & Tech', icon: <Zap size={14} />, color: 'text-green-400' },
-            };
-
-            let BASE_COURSES = []; 
-
-            const EXTERNAL_DATA_KEYS = [
-                'JACHUNG_COURSE_DATA', 
-                'COURSE_DATA_MBTI',   
-                'COURSE_DATA_INSTA',   
-                'COURSE_DATA_WRITING', 
-                'COURSE_DATA_LEESEOP' 
-            ];
-
-            console.group("Archive Data Loading...");
-            EXTERNAL_DATA_KEYS.forEach(key => {
-                try {
-                    if (window[key]) {
-                        const jData = window[key];
-                        const matchedCategory = Object.values(CATEGORIES).find(c => c.id === jData.category) || CATEGORIES.TECH;
-                        
-                        const specialCourse = {
-                            id: jData.id,
-                            title: jData.title,
-                            instructor: jData.instructor,
-                            category: matchedCategory,
-                            description: jData.description,
-                            image: jData.image,
-                            isComplex: true, 
-                            curriculum: jData.chapters
-                        };
-                        
-                        BASE_COURSES = [specialCourse, ...BASE_COURSES];
-                        console.log(`[SUCCESS] Loaded Course: ${jData.title}`);
-                    }
-                } catch (err) {
-                    console.error(`[ERROR] Failed to load data for ${key}:`, err);
-                }
-            });
-            console.groupEnd();
-
-            // 유틸리티
-            const getYoutubeThumbnail = (videoId) => `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
-            const openYoutubeLink = (videoId) => window.open(`https://www.youtube.com/watch?v=${videoId}`, '_blank');
-
-            // 허용된 이메일
-            const ALLOWED_EMAILS = [
-                "choijihoon9988@gmail.com",
-                "jihoo0420@gmail.com"
-            ];
-
-            // ---------------------------------------------------------
-            // 컴포넌트: 로그인 화면
-            // ---------------------------------------------------------
-            const LoginScreen = ({ onLogin, onDevBypass }) => {
-                const [error, setError] = useState(null);
-                const [isAuthenticating, setIsAuthenticating] = useState(false);
-
-                const handleSignIn = () => {
-                    if (!window.firebaseAuth || !window.firebaseAuth.auth) {
-                        setError("System Error: Firebase modules not loaded. Please use Dev Mode.");
-                        return;
-                    }
-
-                    setIsAuthenticating(true);
-                    setError(null);
-                    const { auth, provider, signInWithPopup } = window.firebaseAuth;
-                    
-                    signInWithPopup(auth, provider)
-                        .then((result) => {
-                            const email = result.user.email;
-                            if (ALLOWED_EMAILS.includes(email)) {
-                                onLogin(result.user);
-                            } else {
-                                setError("Access Denied: 귀하는 선택받은 사용자가 아닙니다.");
-                                window.firebaseAuth.signOut(auth);
-                                setIsAuthenticating(false);
-                            }
-                        })
-                        .catch((error) => {
-                            console.error(error);
-                            let msg = error.message;
-                            if (window.location.protocol === 'file:') {
-                                msg = "로컬 파일(file://)에서는 로그인이 제한될 수 있습니다. 아래 [DEV MODE]를 사용하세요.";
-                            }
-                            setError(msg);
-                            setIsAuthenticating(false);
-                        });
-                };
-
-                return (
-                    <div className="h-screen w-full flex flex-col items-center justify-center bg-brand-black relative overflow-hidden no-select">
-                        <div className="absolute top-0 left-0 w-full h-full opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
-                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-brand-gold blur-[180px] opacity-5 rounded-full animate-pulse-slow"></div>
-
-                        <div className="z-10 text-center space-y-10 max-w-md px-6 animate-fade-in">
-                            <div className="space-y-4">
-                                <h1 className="text-6xl md:text-7xl font-serif text-white tracking-tighter">J&J Archive</h1>
-                                <p className="text-brand-gold tracking-[0.3em] text-[10px] font-bold uppercase">Knowledge for the Chosen Few</p>
-                            </div>
-                            
-                            <div className="h-px w-16 bg-gray-800 mx-auto"></div>
-
-                            <p className="text-gray-500 font-sans text-xs leading-relaxed tracking-wide">
-                                본 아카이브는 폐쇄형으로 운영됩니다.<br/>
-                                사전에 인가된 계정으로만 접근이 가능합니다.
-                            </p>
-
-                            <div className="flex flex-col gap-4 items-center">
-                                <button 
-                                    onClick={handleSignIn}
-                                    disabled={isAuthenticating}
-                                    className="group relative px-10 py-4 bg-white text-black font-semibold text-xs tracking-widest uppercase transition-all hover:bg-gray-200 disabled:opacity-50"
-                                >
-                                    <span className="relative z-10 flex items-center justify-center gap-3">
-                                        {isAuthenticating ? 'VERIFYING...' : <><Lock size={14} /> ENTER ARCHIVE</>}
-                                    </span>
-                                </button>
-                                
-                                {onDevBypass && (
-                                    <button 
-                                        onClick={onDevBypass}
-                                        className="text-[9px] text-gray-600 hover:text-brand-gold uppercase tracking-widest transition-colors border-b border-transparent hover:border-brand-gold pb-0.5"
-                                    >
-                                        [DEV MODE] Bypass Authentication
-                                    </button>
-                                )}
-                            </div>
-
-                            {error && (
-                                <div className="mt-4 p-4 bg-red-950/30 border border-red-900/50 text-red-400 text-[10px] tracking-wide break-keep">
-                                    ⚠ {error}
-                                </div>
-                            )}
-                        </div>
-                        <div className="absolute bottom-8 text-gray-800 text-[9px] font-mono">
-                            SECURE CONNECTION • ENCRYPTED • V.2.1.2
-                        </div>
-                    </div>
-                );
-            };
-
-            // ---------------------------------------------------------
-            // 컴포넌트: 보안 영상 런처
-            // ---------------------------------------------------------
-            const SecureVideoLauncher = ({ videoId, title }) => {
-                const thumbnailUrl = getYoutubeThumbnail(videoId);
-                return (
-                    <div className="relative w-full h-full bg-brand-surface group overflow-hidden">
-                        <img src={thumbnailUrl} alt="Restricted" className="absolute inset-0 w-full h-full object-cover opacity-30 blur-sm scale-105 group-hover:scale-100 group-hover:blur-0 transition-all duration-700" />
-                        <div className="absolute inset-0 bg-black/60 group-hover:bg-black/40 transition-colors duration-500"></div>
-                        <div className="absolute inset-0 flex flex-col items-center justify-center z-10">
-                            <div className="mb-6 opacity-80">
-                                <Shield size={32} className="text-brand-gold mb-2 mx-auto" />
-                                <p className="text-[10px] text-brand-gold uppercase tracking-[0.3em] text-center">Secure Connection</p>
-                            </div>
-                            <button onClick={() => openYoutubeLink(videoId)} className="group/btn relative px-8 py-4 bg-white/10 backdrop-blur-md border border-white/20 hover:bg-brand-gold hover:border-brand-gold transition-all duration-300 rounded-sm">
-                                <span className="flex items-center gap-3 text-white group-hover/btn:text-black font-bold text-xs tracking-widest uppercase"><ExternalLink size={16} /> Access Video Source</span>
-                            </button>
-                        </div>
-                    </div>
-                );
-            };
-
-            const SimpleVideoPlayer = ({ videoId, title, onClose }) => {
-                useEffect(() => { document.body.style.overflow = 'hidden'; return () => document.body.style.overflow = 'unset'; }, []);
-                return (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-md animate-fade-in p-0 md:p-8">
-                        <button onClick={onClose} className="absolute top-6 right-6 text-white/40 hover:text-white transition-colors z-50 p-2 hover:bg-white/10 rounded-full"><X size={28} /></button>
-                        <div className="w-full max-w-4xl flex flex-col gap-6">
-                            <div className="relative w-full aspect-video bg-black shadow-2xl border border-white/5 overflow-hidden rounded-sm"><SecureVideoLauncher videoId={videoId} title={title} /></div>
-                            <div className="hidden md:block px-2 animate-slide-up text-center"><h2 className="text-2xl font-serif text-white mb-2">{title}</h2></div>
-                        </div>
-                    </div>
-                );
-            };
-
-            const CourseDetail = ({ course, onClose }) => {
-                const [currentChapterIndex, setCurrentChapterIndex] = useState(0);
-                const [currentLectureIndex, setCurrentLectureIndex] = useState(0);
-                const [expandedChapters, setExpandedChapters] = useState({0: true});
-                const currentLecture = course.curriculum[currentChapterIndex].lectures[currentLectureIndex];
-                const toggleChapter = (idx) => setExpandedChapters(prev => ({...prev, [idx]: !prev[idx]}));
-                const selectLecture = (cIdx, lIdx) => { setCurrentChapterIndex(cIdx); setCurrentLectureIndex(lIdx); };
-
-                return (
-                    <div className="fixed inset-0 z-50 flex bg-black/95 backdrop-blur-xl animate-fade-in text-white overflow-hidden">
-                        <div className="flex-1 flex flex-col h-full relative">
-                             <div className="h-16 flex items-center px-6 border-b border-white/10 bg-brand-black/50">
-                                <button onClick={onClose} className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors text-xs tracking-widest uppercase"><ChevronRight className="rotate-180" size={14} /> Back to Archive</button>
-                            </div>
-                            <div className="flex-1 bg-black flex items-center justify-center p-4 md:p-8 overflow-y-auto">
-                                <div className="w-full max-w-5xl aspect-video bg-brand-surface border border-white/5 relative shadow-2xl"><SecureVideoLauncher videoId={currentLecture.videoId} title={currentLecture.title} /></div>
-                            </div>
-                            <div className="h-24 bg-brand-surface border-t border-white/10 px-8 flex flex-col justify-center">
-                                <div className="flex items-center gap-3 mb-2">
-                                    <span className="px-2 py-0.5 bg-brand-gold/10 border border-brand-gold/20 text-brand-gold text-[9px] font-bold uppercase tracking-widest rounded-sm">Current Class</span>
-                                    <span className="text-gray-500 text-[10px] font-mono tracking-widest">{currentLecture.duration}</span>
-                                </div>
-                                <h2 className="text-xl font-serif text-white">{currentLecture.title}</h2>
-                            </div>
-                        </div>
-                        <div className="w-96 bg-brand-black border-l border-white/10 flex flex-col h-full overflow-hidden">
-                            <div className="p-6 border-b border-white/10 bg-brand-surface/50"><h3 className="font-serif text-xl mb-1">{course.title}</h3><p className="text-xs text-gray-500">{course.curriculum.length} Chapters • Automation Master</p></div>
-                            <div className="flex-1 overflow-y-auto custom-scrollbar">
-                                {course.curriculum.map((chapter, cIdx) => (
-                                    <div key={cIdx} className="border-b border-white/5">
-                                        <button onClick={() => toggleChapter(cIdx)} className="w-full flex items-center justify-between p-4 hover:bg-white/5 transition-colors text-left group">
-                                            <div><p className="text-[9px] text-brand-gold uppercase tracking-widest font-bold mb-1">Chapter {cIdx}</p><h4 className="text-sm font-medium text-gray-300 group-hover:text-white transition-colors line-clamp-1">{chapter.title}</h4></div>
-                                            <ChevronDown size={14} className={`text-gray-500 transition-transform duration-300 ${expandedChapters[cIdx] ? 'rotate-180' : ''}`} />
-                                        </button>
-                                        <div className={`bg-brand-surface overflow-hidden transition-all duration-300 ${expandedChapters[cIdx] ? 'max-h-[1000px]' : 'max-h-0'}`}>
-                                            {chapter.lectures.map((lecture, lIdx) => {
-                                                const isActive = currentChapterIndex === cIdx && currentLectureIndex === lIdx;
-                                                return (
-                                                    <button key={lIdx} onClick={() => selectLecture(cIdx, lIdx)} className={`w-full flex items-start gap-3 p-3 pl-6 hover:bg-white/5 transition-colors text-left border-l-2 ${isActive ? 'border-brand-gold bg-brand-gold/5' : 'border-transparent'}`}>
-                                                        <div className={`mt-0.5 ${isActive ? 'text-brand-gold' : 'text-gray-600'}`}>{isActive ? <Play size={12} fill="currentColor" /> : <div className="w-3 h-3 rounded-full border border-gray-600"></div>}</div>
-                                                        <div><p className={`text-xs mb-1 line-clamp-2 ${isActive ? 'text-white font-medium' : 'text-gray-400'}`}>{lecture.title}</p><p className="text-[9px] text-gray-600 font-mono">{lecture.duration}</p></div>
-                                                    </button>
-                                                )
-                                            })}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                );
-            };
-
-            const CourseCard = ({ course, onClick }) => {
-                return (
-                    <div onClick={() => onClick(course)} className="group relative cursor-pointer w-full aspect-[16/10] overflow-hidden rounded-sm bg-brand-surface transition-all duration-700 hover:scale-[1.01] hover:shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/5 hover:border-brand-gold/30">
-                        <img src={course.image} alt={course.title} className="absolute inset-0 w-full h-full object-cover opacity-60 transition-transform duration-1000 group-hover:scale-110 group-hover:opacity-100" />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent opacity-90 transition-opacity duration-700 group-hover:opacity-60"></div>
-                        <div className="absolute bottom-0 left-0 w-full p-6 md:p-8 translate-y-4 transition-transform duration-500 group-hover:translate-y-0">
-                            <div className="flex items-center gap-2 mb-3 opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-100 transform -translate-x-2 group-hover:translate-x-0">
-                                <span className={`text-[9px] font-bold tracking-[0.2em] uppercase px-2 py-1 bg-white/10 backdrop-blur-sm rounded-sm ${course.category.color} border border-white/5`}>{course.category.name}</span>
-                                {course.isComplex && <span className="text-[9px] font-bold tracking-[0.2em] uppercase px-2 py-1 bg-brand-gold text-black rounded-sm border border-brand-gold">MASTER CLASS</span>}
-                            </div>
-                            <p className="text-gray-400 text-[10px] font-bold tracking-widest uppercase mb-2">{course.instructor}</p>
-                            <h3 className="text-xl md:text-2xl font-serif text-white leading-tight mb-3 group-hover:text-brand-gold transition-colors duration-300">{course.title}</h3>
-                            <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-[grid-template-rows] duration-500">
-                                <div className="overflow-hidden">
-                                    <p className="text-gray-300 text-xs leading-relaxed font-light border-l border-brand-gold/50 pl-3 mb-4 opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-200">{course.description}</p>
-                                    <div className="flex items-center gap-2 text-[10px] font-bold text-white uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-300">
-                                        <div className="w-8 h-8 rounded-full bg-white text-black flex items-center justify-center hover:bg-brand-gold transition-colors"><Play size={12} fill="currentColor" /></div>
-                                        <span>{course.isComplex ? 'Enter Classroom' : 'Watch Class'}</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                );
-            };
-
-            const Dashboard = ({ user, onLogout }) => {
-                const [selectedCourse, setSelectedCourse] = useState(null);
-                const [filter, setFilter] = useState('ALL');
-                const filteredCourses = filter === 'ALL' ? BASE_COURSES : BASE_COURSES.filter(c => c.category.id === filter);
-
-                return (
-                    <div className="min-h-screen bg-brand-dark pb-20 no-select">
-                        <nav className="sticky top-0 z-40 bg-brand-black/80 backdrop-blur-lg border-b border-white/5">
-                            <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-                                <div className="flex items-center gap-4">
-                                    <span className="text-lg font-serif text-white font-bold tracking-tight">J&J Archive</span>
-                                    <span className="hidden md:inline-block h-3 w-px bg-gray-800"></span>
-                                    <span className="hidden md:inline-block text-[10px] text-gray-600 tracking-widest uppercase">For Jihoo Only</span>
-                                </div>
-                                <div className="flex items-center gap-6">
-                                    <div className="hidden md:flex items-center gap-3 text-[10px] text-gray-500 font-mono">
-                                        <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div><span>{user.email}</span>
-                                    </div>
-                                    <button onClick={onLogout} className="text-gray-500 hover:text-white transition-colors"><LogOut size={16} /></button>
-                                </div>
-                            </div>
-                        </nav>
-                        <header className="max-w-7xl mx-auto px-6 py-16 md:py-24">
-                            <h1 className="text-4xl md:text-6xl font-serif text-white mb-6 animate-slide-up leading-tight">Welcome back, <br/><span className="text-gray-600 italic">Initiate.</span></h1>
-                            <p className="text-gray-400 max-w-xl text-sm font-light leading-relaxed animate-slide-up" style={{animationDelay: '0.1s'}}>당신의 성공 알고리즘을 위한 데이터베이스가 준비되었습니다.<br/>외부의 소음을 차단하고, 본질에 집중하십시오.</p>
-                        </header>
-                        <div className="max-w-7xl mx-auto px-6 mb-12 overflow-x-auto scrollbar-hide">
-                            <div className="flex gap-3 min-w-max pb-4">
-                                <button onClick={() => setFilter('ALL')} className={`px-5 py-2.5 text-[10px] font-bold tracking-widest uppercase border transition-all duration-300 rounded-sm ${filter === 'ALL' ? 'border-brand-gold text-brand-gold bg-brand-gold/5' : 'border-white/10 text-gray-500 hover:border-white/30 hover:text-white'}`}>All Archive</button>
-                                {Object.values(CATEGORIES).map(cat => (
-                                    <button key={cat.id} onClick={() => setFilter(cat.id)} className={`flex items-center gap-2 px-5 py-2.5 text-[10px] font-bold tracking-widest uppercase border transition-all duration-300 rounded-sm ${filter === cat.id ? `${cat.color} border-${cat.color.split('-')[1]}-400 text-white bg-white/5` : 'border-white/10 text-gray-500 hover:border-white/30 hover:text-white'}`}>{cat.icon}{cat.name}</button>
-                                ))}
-                            </div>
-                        </div>
-                        <main className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-slide-up" style={{animationDelay: '0.2s'}}>
-                            {filteredCourses.length > 0 ? (
-                                filteredCourses.map(course => <CourseCard key={course.id} course={course} onClick={setSelectedCourse} />)
-                            ) : (
-                                <div className="col-span-full text-center py-20 text-gray-500">데이터가 로드되지 않았습니다.</div>
-                            )}
-                        </main>
-                        {selectedCourse && (selectedCourse.isComplex ? <CourseDetail course={selectedCourse} onClose={() => setSelectedCourse(null)} /> : <SimpleVideoPlayer videoId={selectedCourse.youtubeId} title={selectedCourse.title} onClose={() => setSelectedCourse(null)} />)}
-                        <footer className="max-w-7xl mx-auto px-6 mt-32 border-t border-white/5 pt-8 text-center md:text-left"><p className="text-[10px] text-gray-700 font-mono tracking-widest uppercase">J&J Archive © 2024 | Confidential Material | Unauthorized distribution prohibited.</p></footer>
-                    </div>
-                );
-            };
-
-            const App = () => {
-                const [user, setUser] = useState(null);
-                const [loading, setLoading] = useState(true);
-                const [showDevBypass, setShowDevBypass] = useState(false);
-
-                useEffect(() => {
-                    let attempts = 0;
-                    const checkAuth = () => {
-                        if (window.firebaseAuth && window.firebaseAuth.auth) {
-                            const { auth, onAuthStateChanged } = window.firebaseAuth;
-                            onAuthStateChanged(auth, (currentUser) => {
-                                if (currentUser && ALLOWED_EMAILS.includes(currentUser.email)) {
-                                    setUser(currentUser);
-                                } else {
-                                    setUser(null);
-                                }
-                                setLoading(false);
-                            });
+                signInWithPopup(auth, provider)
+                   .then((result) => {
+                        const email = result.user.email;
+                        // 화이트리스트 검증 로직
+                        if (ALLOWED_EMAILS.includes(email)) {
+                            onLogin(result.user);
                         } else {
-                            attempts++;
-                            // 3초 이상 Firebase가 로드되지 않으면 Dev Mode 버튼 활성화
-                            if (attempts > 30) { 
-                                setShowDevBypass(true);
-                            }
-                            setTimeout(checkAuth, 100);
+                            // 보안 위배 시 강제 로그아웃 처리
+                            setError("Access Denied: 귀하는 선택받은 사용자가 아닙니다.");
+                            window.firebaseAuth.signOut(auth);
+                            setIsAuthenticating(false);
                         }
-                    };
-                    checkAuth();
-                }, []);
+                    })
+                   .catch((error) => {
+                        setError(error.message);
+                        setIsAuthenticating(false);
+                    });
+            };
 
-                const handleLogout = () => {
-                    if (window.firebaseAuth && window.firebaseAuth.auth) {
-                        window.firebaseAuth.signOut(window.firebaseAuth.auth).then(() => setUser(null));
-                    } else {
-                        setUser(null);
-                    }
-                };
-                
-                // 개발자 우회 접속
-                const handleDevBypass = () => {
-                    if (confirm("경고: 개발자 모드(DEV MODE)로 진입합니다.\n인증 절차 없이 시스템에 접근합니다.")) {
-                        setUser({ email: "choijihoon9988@gmail.com" });
-                        setLoading(false);
-                    }
-                };
+            return (
+                <div className="h-screen w-full flex flex-col items-center justify-center bg-brand-black relative overflow-hidden no-select">
+                    {/* 앰비언트 배경 효과 */}
+                    <div className="absolute top-0 left-0 w-full h-full opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-brand-gold blur-[180px] opacity-5 rounded-full animate-pulse-slow"></div>
 
-                if (loading) return (
-                    <div className="h-screen bg-black flex flex-col items-center justify-center gap-4">
-                        <div className="w-8 h-8 border-2 border-brand-gold border-t-transparent rounded-full animate-spin"></div>
-                        <div className="text-brand-gold text-[10px] tracking-[0.5em] animate-pulse">SYSTEM LOADING...</div>
-                        {showDevBypass && (
-                            <button onClick={handleDevBypass} className="mt-8 px-4 py-2 border border-white/10 text-white/50 text-[10px] hover:text-white hover:border-white transition-colors">
-                                FORCE ENTER (DEV MODE)
-                            </button>
+                    <div className="z-10 text-center space-y-10 max-w-md px-6 animate-fade-in">
+                        <div className="space-y-4">
+                            <h1 className="text-6xl md:text-7xl font-serif text-white tracking-tighter">J&J Archive</h1>
+                            <p className="text-brand-gold tracking-[0.3em] text-[10px] font-bold uppercase">Knowledge for the Chosen Few</p>
+                        </div>
+                        
+                        <div className="h-px w-16 bg-gray-800 mx-auto"></div>
+
+                        <p className="text-gray-500 font-sans text-xs leading-relaxed tracking-wide">
+                            본 아카이브는 폐쇄형으로 운영됩니다.<br/>
+                            사전에 인가된 계정으로만 접근이 가능합니다.
+                        </p>
+
+                        <button 
+                            onClick={handleSignIn}
+                            disabled={isAuthenticating}
+                            className="group relative px-10 py-4 bg-white text-black font-semibold text-xs tracking-widest uppercase transition-all hover:bg-gray-200 disabled:opacity-50"
+                        >
+                            <span className="relative z-10 flex items-center gap-3">
+                                {isAuthenticating? 'VERIFYING...' : <><Lock size={14} /> ENTER ARCHIVE</>}
+                            </span>
+                        </button>
+
+                        {error && (
+                            <div className="mt-4 p-4 bg-red-950/30 border border-red-900/50 text-red-400 text-[10px] tracking-wide">
+                                ⚠ {error}
+                            </div>
                         )}
                     </div>
-                );
+                    
+                    <div className="absolute bottom-8 text-gray-800 text-[9px] font-mono">
+                        SECURE CONNECTION • ENCRYPTED • V.1.0.0
+                    </div>
+                </div>
+            );
+        };
 
-                return user ? <Dashboard user={user} onLogout={handleLogout} /> : <LoginScreen onLogin={setUser} onDevBypass={showDevBypass ? handleDevBypass : null} />;
+        // ---------------------------------------------------------
+        // 컴포넌트: 비디오 플레이어 (The Shield Modal)
+        // ---------------------------------------------------------
+        const VideoPlayer = ({ videoId, title, onClose }) => {
+            // 마운트 시 body 스크롤 잠금
+            useEffect(() => {
+                document.body.style.overflow = 'hidden';
+                return () => document.body.style.overflow = 'unset';
+            },);
+
+            return (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-md animate-fade-in p-0 md:p-8">
+                    {/* 닫기 버튼 */}
+                    <button 
+                        onClick={onClose}
+                        className="absolute top-6 right-6 text-white/40 hover:text-white transition-colors z-50 p-2 hover:bg-white/10 rounded-full"
+                    >
+                        <X size={28} />
+                    </button>
+
+                    <div className="w-full max-w-6xl flex flex-col gap-6">
+                        {/* 영상 컨테이너 (16:9 비율 유지) */}
+                        <div className="relative w-full aspect-video bg-black shadow-2xl border border-white/5 overflow-hidden rounded-sm">
+                            <iframe 
+                                className="w-full h-full"
+                                src={`https://www.youtube.com/embed/${videoId}?autoplay=1&controls=1&modestbranding=1&rel=0&showinfo=0&disablekb=1&iv_load_policy=3&fs=1`}
+                                title={title}
+                                frameBorder="0" 
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                allowFullScreen
+                            ></iframe>
+
+                            {/* [핵심] 콘텐츠 유출 방지 쉴드 (Transparent Shield) */}
+                            {/* 상단 쉴드: 영상 제목 및 채널 링크 클릭 방지 */}
+                            <div className="video-shield top-0 left-0 w-full h-[15%] pointer-events-auto"></div>
+                            
+                            {/* 하단 쉴드: 우측 하단 유튜브 로고 클릭 방지 */}
+                            {/* 컨트롤 바(약 40px)는 클릭할 수 있도록 height 조절 필요. 로고 위치만 정교하게 커버 */}
+                            <div className="video-shield bottom-[50px] right-0 w-[120px] h-[60px] pointer-events-auto"></div>
+                        </div>
+                        
+                        {/* 영상 메타 정보 */}
+                        <div className="hidden md:block px-2 animate-slide-up">
+                            <h2 className="text-2xl font-serif text-white mb-2">{title}</h2>
+                            <div className="flex items-center gap-3 text-brand-gold text-[10px] tracking-[0.2em] uppercase font-bold">
+                                <span className="flex items-center gap-1">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse"></span>
+                                    On Air
+                                </span>
+                                <span className="text-gray-600">|</span>
+                                <span>Restricted Content</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // ---------------------------------------------------------
+        // 컴포넌트: 강의 카드 (The MasterClass Effect)
+        // ---------------------------------------------------------
+        const CourseCard = ({ course, onClick }) => {
+            return (
+                <div 
+                    onClick={() => onClick(course)}
+                    className="group relative cursor-pointer w-full aspect-[16/10] overflow-hidden rounded-sm bg-brand-surface transition-all duration-700 hover:scale-[1.01] hover:shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/5 hover:border-brand-gold/30"
+                >
+                    {/* 썸네일 이미지: Hover 시 줌인 효과 */}
+                    <img 
+                        src={course.image} 
+                        alt={course.title} 
+                        className="absolute inset-0 w-full h-full object-cover opacity-60 transition-transform duration-1000 group-hover:scale-110 group-hover:opacity-100"
+                    />
+                    
+                    {/* 그라디언트 오버레이: 텍스트 가독성 확보 */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent opacity-90 transition-opacity duration-700 group-hover:opacity-60"></div>
+
+                    {/* 카드 콘텐츠 */}
+                    <div className="absolute bottom-0 left-0 w-full p-6 md:p-8 translate-y-4 transition-transform duration-500 group-hover:translate-y-0">
+                        {/* 카테고리 태그 */}
+                        <div className="flex items-center gap-2 mb-3 opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-100 transform -translate-x-2 group-hover:translate-x-0">
+                            <span className={`text-[9px] font-bold tracking-[0.2em] uppercase px-2 py-1 bg-white/10 backdrop-blur-sm rounded-sm ${course.category.color} border border-white/5`}>
+                                {course.category.name}
+                            </span>
+                        </div>
+                        
+                        {/* 강사명 */}
+                        <p className="text-gray-400 text-[10px] font-bold tracking-widest uppercase mb-2">
+                            {course.instructor}
+                        </p>
+                        
+                        {/* 강의 제목 */}
+                        <h3 className="text-xl md:text-2xl font-serif text-white leading-tight mb-3 group-hover:text-brand-gold transition-colors duration-300">
+                            {course.title}
+                        </h3>
+
+                        {/* 설명 (Hover 시 등장) */}
+                        <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-[grid-template-rows] duration-500">
+                            <div className="overflow-hidden">
+                                <p className="text-gray-300 text-xs leading-relaxed font-light border-l border-brand-gold/50 pl-3 mb-4 opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-200">
+                                    {course.description}
+                                </p>
+                                
+                                {/* 재생 버튼 UI */}
+                                <div className="flex items-center gap-2 text-[10px] font-bold text-white uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-300">
+                                    <div className="w-8 h-8 rounded-full bg-white text-black flex items-center justify-center hover:bg-brand-gold transition-colors">
+                                        <Play size={12} fill="currentColor" />
+                                    </div>
+                                    <span>Watch Class</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // ---------------------------------------------------------
+        // 컴포넌트: 메인 대시보드
+        // ---------------------------------------------------------
+        const Dashboard = ({ user, onLogout }) => {
+            const = useState(null);
+            const [filter, setFilter] = useState('ALL');
+
+            // 필터링 로직
+            const filteredCourses = filter === 'ALL' 
+               ? COURSES 
+                : COURSES.filter(c => c.category.id === filter);
+
+            return (
+                <div className="min-h-screen bg-brand-dark pb-20 no-select">
+                    {/* 상단 내비게이션 */}
+                    <nav className="sticky top-0 z-40 bg-brand-black/80 backdrop-blur-lg border-b border-white/5">
+                        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                                <span className="text-lg font-serif text-white font-bold tracking-tight">J&J Archive</span>
+                                <span className="hidden md:inline-block h-3 w-px bg-gray-800"></span>
+                                <span className="hidden md:inline-block text-[10px] text-gray-600 tracking-widest uppercase">For Jihoo Only</span>
+                            </div>
+                            
+                            <div className="flex items-center gap-6">
+                                <div className="hidden md:flex items-center gap-3 text-[10px] text-gray-500 font-mono">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
+                                    <span>{user.email}</span>
+                                </div>
+                                <button 
+                                    onClick={onLogout}
+                                    className="text-gray-500 hover:text-white transition-colors"
+                                    title="Disconnect"
+                                >
+                                    <LogOut size={16} />
+                                </button>
+                            </div>
+                        </div>
+                    </nav>
+
+                    {/* 히어로 섹션 */}
+                    <header className="max-w-7xl mx-auto px-6 py-16 md:py-24">
+                        <h1 className="text-4xl md:text-6xl font-serif text-white mb-6 animate-slide-up leading-tight">
+                            Welcome back, <br/>
+                            <span className="text-gray-600 italic">Initiate.</span>
+                        </h1>
+                        <p className="text-gray-400 max-w-xl text-sm font-light leading-relaxed animate-slide-up" style={{animationDelay: '0.1s'}}>
+                            당신의 성공 알고리즘을 위한 데이터베이스가 준비되었습니다.<br/>
+                            외부의 소음을 차단하고, 본질에 집중하십시오.
+                        </p>
+                    </header>
+
+                    {/* 카테고리 필터 */}
+                    <div className="max-w-7xl mx-auto px-6 mb-12 overflow-x-auto scrollbar-hide">
+                        <div className="flex gap-3 min-w-max pb-4">
+                            <button 
+                                onClick={() => setFilter('ALL')}
+                                className={`px-5 py-2.5 text-[10px] font-bold tracking-widest uppercase border transition-all duration-300 rounded-sm ${filter === 'ALL'? 'border-brand-gold text-brand-gold bg-brand-gold/5' : 'border-white/10 text-gray-500 hover:border-white/30 hover:text-white'}`}
+                            >
+                                All Archive
+                            </button>
+                            {Object.values(CATEGORIES).map(cat => (
+                                <button 
+                                    key={cat.id}
+                                    onClick={() => setFilter(cat.id)}
+                                    className={`flex items-center gap-2 px-5 py-2.5 text-[10px] font-bold tracking-widest uppercase border transition-all duration-300 rounded-sm ${filter === cat.id? `border-${cat.color.split('-')}-400 text-white bg-white/5` : 'border-white/10 text-gray-500 hover:border-white/30 hover:text-white'}`}
+                                >
+                                    {cat.icon}
+                                    {cat.name}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* 강의 그리드 */}
+                    <main className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-slide-up" style={{animationDelay: '0.2s'}}>
+                        {filteredCourses.map(course => (
+                            <CourseCard 
+                                key={course.id} 
+                                course={course} 
+                                onClick={setSelectedCourse} 
+                            />
+                        ))}
+                    </main>
+
+                    {/* 비디오 모달 */}
+                    {selectedCourse && (
+                        <VideoPlayer 
+                            videoId={selectedCourse.youtubeId} 
+                            title={selectedCourse.title}
+                            onClose={() => setSelectedCourse(null)} 
+                        />
+                    )}
+
+                    <footer className="max-w-7xl mx-auto px-6 mt-32 border-t border-white/5 pt-8 text-center md:text-left">
+                        <p className="text-[10px] text-gray-700 font-mono tracking-widest uppercase">
+                            J&J Archive © 2024 | Confidential Material | Unauthorized distribution prohibited.
+                        </p>
+                    </footer>
+                </div>
+            );
+        };
+
+        // ---------------------------------------------------------
+        // 루트 앱 및 인증 상태 관리
+        // ---------------------------------------------------------
+        const App = () => {
+            const [user, setUser] = useState(null);
+            const [loading, setLoading] = useState(true);
+
+            useEffect(() => {
+                const { auth, onAuthStateChanged } = window.firebaseAuth;
+                // 인증 상태 감시자 (Listener)
+                const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+                    if (currentUser && ALLOWED_EMAILS.includes(currentUser.email)) {
+                        setUser(currentUser);
+                    } else {
+                        // 화이트리스트에 없거나 로그아웃 상태면 접근 차단
+                        setUser(null);
+                    }
+                    setLoading(false);
+                });
+                return () => unsubscribe();
+            },);
+
+            const handleLogout = () => {
+                const { auth, signOut } = window.firebaseAuth;
+                signOut(auth).then(() => setUser(null));
             };
 
-            const root = ReactDOM.createRoot(document.getElementById('root'));
-            root.render(<App />);
-        }
-        
-        // ---------------------------------------------------------
-        // 앱 실행 트리거
-        // ---------------------------------------------------------
-        mountApp();
+            // 초기 로딩 스피너
+            if (loading) return (
+                <div className="h-screen bg-black flex flex-col items-center justify-center gap-4">
+                    <div className="w-8 h-8 border-2 border-brand-gold border-t-transparent rounded-full animate-spin"></div>
+                    <div className="text-brand-gold text-[10px] tracking-[0.5em] animate-pulse">SYSTEM LOADING...</div>
+                </div>
+            );
+
+            return user? <Dashboard user={user} onLogout={handleLogout} /> : <LoginScreen onLogin={setUser} />;
+        };
+
+        // DOM 렌더링
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+
+    <script>
+        // React 컴포넌트가 마운트된 후 아이콘을 렌더링하기 위해 약간의 지연 후 호출
+        setTimeout(() => {
+            lucide.createIcons();
+        }, 100);
     </script>
 </body>
 </html>
