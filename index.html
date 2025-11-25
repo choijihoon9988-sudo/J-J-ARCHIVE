@@ -214,7 +214,7 @@
         };
 
         // ---------------------------------------------------------
-        // [UPDATED] LecturePlayer: The Secure Launcher
+        // [UPDATED] LecturePlayer: The Smart Secure Launcher
         // ---------------------------------------------------------
         const LecturePlayer = ({ course, onClose }) => {
             const [currentLecture, setCurrentLecture] = useState(() => {
@@ -226,10 +226,22 @@
                 return () => document.body.style.overflow = 'unset';
             }, []);
 
+            // [FIX] URL 감지 및 자동 처리 로직 추가
             const handleLaunchVideo = () => {
                 if (!currentLecture || !currentLecture.videoId) return;
-                // 유튜브 링크 생성 (PC/모바일 모두 대응)
-                const url = `https://www.youtube.com/watch?v=${currentLecture.videoId}`;
+                
+                let videoId = currentLecture.videoId.trim();
+                let url;
+
+                // 1. 이미 URL 형태인 경우 (http로 시작) -> 그대로 사용
+                if (videoId.startsWith('http')) {
+                    url = videoId;
+                } 
+                // 2. 순수 ID인 경우 -> 유튜브 링크 생성
+                else {
+                    url = `https://www.youtube.com/watch?v=${videoId}`;
+                }
+
                 window.open(url, '_blank');
             };
 
