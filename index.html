@@ -131,11 +131,16 @@
             const { useState, useEffect, useRef } = React;
 
             // ---------------------------------------------------------
-            // [Fix] 아이콘 어댑터: Vanilla Lucide -> React Component 변환
+            // [Fix] 아이콘 래퍼: Vanilla Lucide -> React Component 변환
+            // 이유: window.lucide에는 React 컴포넌트가 직접 들어있지 않으므로,
+            // 이를 React 요소로 변환해주는 '어댑터'가 필요합니다.
             // ---------------------------------------------------------
             const LucideIcon = ({ name, size = 24, color = "currentColor", className = "", ...props }) => {
-                const iconDef = window.lucide.icons[name];
-                if (!iconDef) return null;
+                const iconDef = window.lucide.icons ? window.lucide.icons[name] : null;
+                if (!iconDef) {
+                    console.warn(`Icon not found: ${name}`);
+                    return null;
+                }
                 
                 // lucide.icons[name] 구조: ["svg", {attrs}, [children]]
                 const [tag, attrs, children] = iconDef;
@@ -152,7 +157,7 @@
                 ));
             };
 
-            // 필요한 아이콘들을 개별 컴포넌트로 정의
+            // 필요한 아이콘들을 개별 컴포넌트로 정의 (어댑터 연결)
             const Play = (props) => <LucideIcon name="Play" {...props} />;
             const Lock = (props) => <LucideIcon name="Lock" {...props} />;
             const ChevronRight = (props) => <LucideIcon name="ChevronRight" {...props} />;
