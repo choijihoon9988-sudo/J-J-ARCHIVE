@@ -9,7 +9,7 @@
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://jnj-archive.web.app/">
     <meta property="og:title" content="J&J Archive | Private Library">
-    <meta property="og:description" content="친구 지후의 성장을 위한 프라이빗 지식 플랫폼. 엄선된 강의와 인사이트를 만나보세요.">
+    <meta property="og:description" content="서로의 성장을 위한 프라이빗 지식 플랫폼. 엄선된 강의와 인사이트를 만나보세요.">
     <meta property="og:image" content="./AI.png">
     <meta property="og:locale" content="ko_KR">
 
@@ -206,7 +206,7 @@
                         
                         <h1 className="text-3xl font-bold text-toss-black mb-3 text-center">J&J Archive</h1>
                         <p className="text-toss-grey600 text-center mb-10 leading-relaxed">
-                            친구 지후의 성장을 위해 준비된<br/>
+                            서로의 성장을 위해 준비된<br/>
                             프라이빗 지식 플랫폼입니다.
                         </p>
 
@@ -242,7 +242,7 @@
         };
 
 
-        // --- Component: Lecture Player (Modal) ---
+        // --- Component: Lecture Player (Modal/Page) ---
         const LecturePlayer = ({ course, onClose }) => {
             const [currentLecture, setCurrentLecture] = useState(() => course.chapters?.[0]?.lectures?.[0] || null);
 
@@ -261,53 +261,56 @@
             if (!currentLecture) return null;
 
             return (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6 animate-fade-in">
-                    <div className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity" onClick={onClose}></div>
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-0 md:p-6 animate-fade-in bg-white md:bg-transparent">
+                    {/* Backdrop: Only visible on desktop to simulate modal. Hidden on mobile to simulate full page */}
+                    <div className="hidden md:block absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity" onClick={onClose}></div>
                     
-                    <div className="relative bg-white w-full max-w-6xl h-[85vh] rounded-[32px] shadow-2xl overflow-hidden flex flex-col md:flex-row animate-slide-up">
+                    {/* Main Container: Full width/height on mobile, Card on desktop */}
+                    <div className="relative bg-white w-full h-full md:h-[85vh] md:max-w-6xl rounded-none md:rounded-[32px] shadow-none md:shadow-2xl overflow-hidden flex flex-col md:flex-row animate-slide-up">
                         
-                        {/* Mobile Close Button */}
-                        <button onClick={onClose} className="absolute top-4 right-4 z-50 p-2 bg-white/10 backdrop-blur-md rounded-full md:hidden">
+                        {/* Mobile Close Button (Top-Right of the screen) */}
+                        <button onClick={onClose} className="absolute top-4 right-4 z-50 p-2 bg-black/20 backdrop-blur-md rounded-full md:hidden">
                             <Icons.X className="text-white" />
                         </button>
 
                         {/* Left: Player / Launcher Area */}
-                        <div className="flex-[1.5] bg-toss-grey900 relative flex flex-col">
+                        {/* Mobile: Shrink to content, Desktop: 1.5 flex ratio */}
+                        <div className="shrink-0 md:flex-[1.5] bg-toss-grey900 relative flex flex-col">
                              {/* Background Overlay */}
                              <div className="absolute inset-0 z-0">
                                 <img src={course.image} className="w-full h-full object-cover opacity-20 blur-xl scale-110" />
                                 <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/60 to-transparent"></div>
                              </div>
 
-                             <div className="relative z-10 flex-1 flex flex-col items-center justify-center p-10 text-center text-white">
+                             <div className="relative z-10 flex flex-col items-center justify-center p-8 md:p-10 text-center text-white min-h-[40vh] md:min-h-0 md:flex-1">
                                 <div className="mb-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/10 text-[11px] font-bold tracking-wider uppercase text-blue-200">
                                     Private Source
                                 </div>
-                                <h2 className="text-2xl md:text-4xl font-bold mb-8 leading-tight max-w-2xl text-shadow-sm">
+                                <h2 className="text-xl md:text-4xl font-bold mb-6 leading-tight max-w-2xl text-shadow-sm line-clamp-3">
                                     {currentLecture.title}
                                 </h2>
                                 
                                 <button 
                                     onClick={handleLaunchVideo}
-                                    className="group relative px-8 py-4 bg-toss-blue hover:bg-blue-500 text-white rounded-2xl font-semibold text-lg transition-all hover:scale-105 shadow-lg shadow-blue-500/30 flex items-center gap-3"
+                                    className="group relative px-6 py-3 md:px-8 md:py-4 bg-toss-blue hover:bg-blue-500 text-white rounded-2xl font-semibold text-base md:text-lg transition-all hover:scale-105 shadow-lg shadow-blue-500/30 flex items-center gap-3"
                                 >
                                     <Icons.Play fill="currentColor" className="group-hover:translate-x-0.5 transition-transform" />
                                     <span>영상 재생하기</span>
                                 </button>
                                 
-                                <p className="mt-8 text-white/40 text-sm max-w-md">
-                                    보안을 위해 외부 플레이어(YouTube)로 안전하게 연결됩니다.<br/>
-                                    초대된 계정으로 로그인되어 있어야 재생이 가능합니다.
+                                <p className="mt-6 text-white/40 text-xs md:text-sm max-w-md hidden md:block">
+                                    보안을 위해 외부 플레이어(YouTube)로 안전하게 연결됩니다.
                                 </p>
                              </div>
                         </div>
 
                         {/* Right: Curriculum List */}
-                        <div className="flex-1 bg-white flex flex-col border-l border-toss-grey200 max-h-[50vh] md:max-h-full">
-                            <div className="p-6 border-b border-toss-grey100 flex justify-between items-start">
+                        {/* Mobile: Flex-1 to take remaining space and scroll */}
+                        <div className="flex-1 bg-white flex flex-col border-l border-toss-grey200 overflow-hidden">
+                            <div className="p-4 md:p-6 border-b border-toss-grey100 flex justify-between items-start shrink-0">
                                 <div>
-                                    <h3 className="text-lg font-bold text-toss-black">{course.title}</h3>
-                                    <p className="text-sm text-toss-grey500 mt-1">{course.instructor} • Total {course.chapters.reduce((acc, ch) => acc + ch.lectures.length, 0)} lectures</p>
+                                    <h3 className="text-base md:text-lg font-bold text-toss-black">{course.title}</h3>
+                                    <p className="text-xs md:text-sm text-toss-grey500 mt-1">{course.instructor} • Total {course.chapters.reduce((acc, ch) => acc + ch.lectures.length, 0)} lectures</p>
                                 </div>
                                 <button onClick={onClose} className="hidden md:block p-2 hover:bg-toss-grey100 rounded-full transition-colors text-toss-grey600">
                                     <Icons.X />
@@ -337,7 +340,7 @@
                                                             {isActive ? <Icons.Play size={10} fill="currentColor"/> : <span className="text-[10px] font-bold">{lIdx + 1}</span>}
                                                         </div>
                                                         <div className="flex-1 min-w-0">
-                                                            <div className="truncate text-[15px]">{lecture.title}</div>
+                                                            <div className="truncate text-[14px] md:text-[15px]">{lecture.title}</div>
                                                             <div className="text-[11px] opacity-60 mt-0.5">{lecture.duration}</div>
                                                         </div>
                                                     </button>
@@ -413,6 +416,13 @@
                 return "좋은 저녁입니다";
             };
 
+            // Get User Name from Email
+            const getUserName = (email) => {
+                if (email === 'choijihoon9988@gmail.com') return '재영';
+                if (email === 'jihoo0420@gmail.com') return '지후';
+                return '지후'; // Default fallback
+            };
+
             return (
                 <div className="min-h-screen pb-20">
                     {/* Header */}
@@ -444,7 +454,7 @@
                     {/* Hero Section */}
                     <header className="max-w-7xl mx-auto px-4 md:px-8 py-12 md:py-20 animate-slide-up">
                         <h1 className="text-3xl md:text-5xl font-bold text-toss-black mb-4 leading-tight">
-                            {getGreeting()}, 지후님.<br/>
+                            {getGreeting()}, {getUserName(user.email)}님.<br/>
                             <span className="text-toss-grey400">오늘은 어떤 인사이트가 필요하신가요?</span>
                         </h1>
                         <p className="text-toss-grey600 max-w-2xl text-base md:text-lg">
@@ -506,7 +516,7 @@
                             <div>
                                 <h5 className="font-bold text-toss-grey800 text-sm mb-3">J&J Archive</h5>
                                 <p className="text-toss-grey500 text-xs leading-relaxed">
-                                    친구의 성장을 돕기 위해 구축한<br/>
+                                    서로의 성장을 돕기 위해 구축한<br/>
                                     세상에서 가장 안전하고 프라이빗한 디지털 서재
                                 </p>
                             </div>
