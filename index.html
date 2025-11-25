@@ -1016,7 +1016,8 @@
                 COURSES.forEach(course => {
                     course.chapters.forEach(chapter => {
                         chapter.lectures.forEach(lecture => {
-                            if (lecture.title.toLowerCase().includes(query) || course.title.toLowerCase().includes(query)) {
+                            // ** 수정된 부분: 강의명(course.title) 제외, 강의 영상 제목(lecture.title)만 검색 **
+                            if (lecture.title.toLowerCase().includes(query)) {
                                 results.push({
                                     lecture,
                                     course,
@@ -1152,7 +1153,7 @@
                                         type="text" 
                                         value={searchQuery}
                                         onChange={(e) => setSearchQuery(e.target.value)}
-                                        placeholder="강의 제목이나 키워드를 검색해보세요 (예: 돈, 연애, 글쓰기...)" 
+                                        placeholder="강의 제목이나 키워드를 검색해보세요 (예: 이론, 법, 돈...)" 
                                         className="w-full pl-12 pr-4 py-4 bg-white border border-toss-grey200 rounded-2xl text-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-toss-blue/20 focus:border-toss-blue transition-all"
                                     />
                                 </div>
