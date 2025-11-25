@@ -103,7 +103,8 @@
         const provider = new GoogleAuthProvider();
 
         // 전역 객체에 Firebase 기능 노출 (React에서 사용하기 위함)
-        window.firebaseAuth = { auth, provider, signInWithPopup, signOut, onAuthStateChanged };
+        // 로딩 완료 표시를 위해 플래그 추가
+        window.firebaseAuth = { auth, provider, signInWithPopup, signOut, onAuthStateChanged, isReady: true };
     </script>
 
     <script type="text/babel">
@@ -132,7 +133,7 @@
             TECH: { id: 'tech', name: 'AI & Tech', icon: <Zap size={14} />, color: 'text-green-400' },
         };
 
-        let BASE_COURSES = []; // 기본 더미 데이터 제거, 외부 데이터만 로드
+        let BASE_COURSES = []; 
 
         const EXTERNAL_DATA_KEYS = [
             'JACHUNG_COURSE_DATA', 
@@ -168,7 +169,7 @@
         console.groupEnd();
 
         // ---------------------------------------------------------
-        // [중요] 허용된 이메일 목록 수정 완료
+        // [중요] 허용된 이메일 목록
         // ---------------------------------------------------------
         const ALLOWED_EMAILS = [
             "choijihoon9988@gmail.com",  // 사용자 본인
@@ -183,6 +184,11 @@
             const [isAuthenticating, setIsAuthenticating] = useState(false);
 
             const handleSignIn = () => {
+                if (!window.firebaseAuth || !window.firebaseAuth.auth) {
+                    setError("System Error: Firebase modules not loaded properly.");
+                    return;
+                }
+
                 setIsAuthenticating(true);
                 setError(null);
                 const { auth, provider, signInWithPopup } = window.firebaseAuth;
@@ -286,7 +292,7 @@
         };
 
         // ---------------------------------------------------------
-        // 컴포넌트: 단일 영상 뷰어 (호환성 유지용)
+        // 컴포넌트: 단일 영상 뷰어
         // ---------------------------------------------------------
         const SimpleVideoPlayer = ({ videoId, title, onClose }) => {
             useEffect(() => {
@@ -313,7 +319,7 @@
         };
 
         // ---------------------------------------------------------
-        // 컴포넌트: LMS 코스 상세 (Deep Link 적용됨)
+        // 컴포넌트: LMS 코스 상세
         // ---------------------------------------------------------
         const CourseDetail = ({ course, onClose }) => {
             const [currentChapterIndex, setCurrentChapterIndex] = useState(0);
@@ -575,24 +581,36 @@
             const [loading, setLoading] = useState(true);
 
             useEffect(() => {
-                const { auth, onAuthStateChanged } = window.firebaseAuth;
-                const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-                    if (currentUser && ALLOWED_EMAILS.includes(currentUser.email)) {
-                        setUser(currentUser);
+                // [안전장치] Firebase가 로드될 때까지 기다립니다 (Polling 방식)
+                const waitForFirebase = () => {
+                    if (window.firebaseAuth && window.firebaseAuth.auth) {
+                        const { auth, onAuthStateChanged } = window.firebaseAuth;
+                        const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+                            if (currentUser && ALLOWED_EMAILS.includes(currentUser.email)) {
+                                setUser(currentUser);
+                            } else {
+                                if (currentUser) {
+                                    window.firebaseAuth.signOut(auth);
+                                }
+                                setUser(null);
+                            }
+                            setLoading(false);
+                        });
+                        return () => unsubscribe();
                     } else {
-                        if (currentUser) {
-                            window.firebaseAuth.signOut(auth);
-                        }
-                        setUser(null);
+                        // 아직 로드되지 않았다면 50ms 후 다시 확인
+                        setTimeout(waitForFirebase, 50);
                     }
-                    setLoading(false);
-                });
-                return () => unsubscribe();
+                };
+
+                waitForFirebase();
             }, []);
 
             const handleLogout = () => {
-                const { auth, signOut } = window.firebaseAuth;
-                signOut(auth).then(() => setUser(null));
+                if (window.firebaseAuth) {
+                    const { auth, signOut } = window.firebaseAuth;
+                    signOut(auth).then(() => setUser(null));
+                }
             };
 
             if (loading) return (
@@ -610,7 +628,9 @@
     </script>
     <script>
         setTimeout(() => {
-            lucide.createIcons();
+            if (window.lucide) {
+                lucide.createIcons();
+            }
         }, 100);
     </script>
 </body>
