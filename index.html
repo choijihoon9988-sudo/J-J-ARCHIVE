@@ -160,6 +160,8 @@
             Folder: ({size=20, className}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>,
             FileText: ({size=20, className}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>,
             Layout: ({size=20, className}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>,
+            Edit3: ({size=20, className}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>,
+            Save: ({size=20, className}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>,
         };
 
         // --- Config & Data ---
@@ -261,19 +263,41 @@
 
 
         // --- Component: Lecture Player (Modal/Page) ---
-        const LecturePlayer = ({ course, initialLecture, onClose }) => {
+        const LecturePlayer = ({ course, initialLecture, notes, onSaveNote, onClose }) => {
             const [currentLecture, setCurrentLecture] = useState(() => initialLecture || course.chapters?.[0]?.lectures?.[0] || null);
+            const [activeTab, setActiveTab] = useState('CURRICULUM'); // 'CURRICULUM' | 'NOTE'
+            const [noteContent, setNoteContent] = useState('');
+            const [isSaving, setIsSaving] = useState(false);
 
             useEffect(() => {
                 document.body.style.overflow = 'hidden';
                 return () => document.body.style.overflow = 'unset';
             }, []);
 
+            // Load note when lecture changes
+            useEffect(() => {
+                if (currentLecture && currentLecture.videoId) {
+                    setNoteContent(notes[currentLecture.videoId] || '');
+                }
+            }, [currentLecture, notes]);
+
             const handleLaunchVideo = () => {
                 if (!currentLecture || !currentLecture.videoId) return;
                 let videoId = currentLecture.videoId.trim();
                 let url = videoId.startsWith('http') ? videoId : `https://www.youtube.com/watch?v=${videoId}`;
                 window.open(url, '_blank');
+            };
+
+            const handleNoteChange = (e) => {
+                setNoteContent(e.target.value);
+            };
+
+            const handleNoteSave = () => {
+                if (currentLecture && currentLecture.videoId) {
+                    setIsSaving(true);
+                    onSaveNote(currentLecture.videoId, noteContent);
+                    setTimeout(() => setIsSaving(false), 800);
+                }
             };
 
             if (!currentLecture) return null;
@@ -316,48 +340,91 @@
                         </div>
 
                         <div className="flex-1 bg-white flex flex-col border-l border-toss-grey200 overflow-hidden">
-                            <div className="p-4 md:p-6 border-b border-toss-grey100 flex justify-between items-start shrink-0">
-                                <div>
-                                    <h3 className="text-base md:text-lg font-bold text-toss-black">{course.title}</h3>
-                                    <p className="text-xs md:text-sm text-toss-grey500 mt-1">{course.instructor} • Total {course.chapters.reduce((acc, ch) => acc + ch.lectures.length, 0)} lectures</p>
+                            <div className="p-4 border-b border-toss-grey100 flex justify-between items-center shrink-0">
+                                <div className="flex items-center gap-1 bg-toss-grey100 p-1 rounded-lg">
+                                    <button 
+                                        onClick={() => setActiveTab('CURRICULUM')}
+                                        className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${activeTab === 'CURRICULUM' ? 'bg-white text-toss-blue shadow-sm' : 'text-toss-grey500'}`}
+                                    >
+                                        목차
+                                    </button>
+                                    <button 
+                                        onClick={() => setActiveTab('NOTE')}
+                                        className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1 ${activeTab === 'NOTE' ? 'bg-white text-toss-blue shadow-sm' : 'text-toss-grey500'}`}
+                                    >
+                                        노트
+                                        {noteContent && <div className="w-1.5 h-1.5 rounded-full bg-toss-blue"></div>}
+                                    </button>
                                 </div>
                                 <button onClick={onClose} className="hidden md:block p-2 hover:bg-toss-grey100 rounded-full transition-colors text-toss-grey600">
                                     <Icons.X />
                                 </button>
                             </div>
 
-                            <div className="flex-1 overflow-y-auto custom-scroll p-4">
-                                {course.chapters.map((chapter, idx) => (
-                                    <div key={idx} className="mb-6">
-                                        <h4 className="text-xs font-bold text-toss-grey500 uppercase tracking-wider mb-3 px-2">
-                                            {chapter.title}
-                                        </h4>
-                                        <div className="space-y-1">
-                                            {chapter.lectures.map((lecture, lIdx) => {
-                                                const isActive = currentLecture.title === lecture.title;
-                                                return (
-                                                    <button
-                                                        key={lIdx}
-                                                        onClick={() => setCurrentLecture(lecture)}
-                                                        className={`w-full text-left p-3 rounded-xl flex items-center gap-3 transition-all duration-200
-                                                            ${isActive 
-                                                                ? 'bg-toss-blueLight text-toss-blue font-medium' 
-                                                                : 'hover:bg-toss-grey100 text-toss-grey700'
-                                                            }`}
-                                                    >
-                                                        <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${isActive ? 'bg-toss-blue text-white' : 'bg-toss-grey200 text-toss-grey500'}`}>
-                                                            {isActive ? <Icons.Play size={10} fill="currentColor"/> : <span className="text-[10px] font-bold">{lIdx + 1}</span>}
-                                                        </div>
-                                                        <div className="flex-1 min-w-0">
-                                                            <div className="truncate text-[14px] md:text-[15px]">{lecture.title}</div>
-                                                            <div className="text-[11px] opacity-60 mt-0.5">{lecture.duration}</div>
-                                                        </div>
-                                                    </button>
-                                                )
-                                            })}
+                            <div className="flex-1 overflow-y-auto custom-scroll relative bg-white">
+                                {activeTab === 'CURRICULUM' ? (
+                                    <div className="p-4">
+                                        <div className="mb-4">
+                                            <h3 className="text-base font-bold text-toss-black">{course.title}</h3>
+                                            <p className="text-xs text-toss-grey500 mt-0.5">{course.instructor} • Total {course.chapters.reduce((acc, ch) => acc + ch.lectures.length, 0)} lectures</p>
                                         </div>
+                                        {course.chapters.map((chapter, idx) => (
+                                            <div key={idx} className="mb-6">
+                                                <h4 className="text-xs font-bold text-toss-grey500 uppercase tracking-wider mb-3 px-2">
+                                                    {chapter.title}
+                                                </h4>
+                                                <div className="space-y-1">
+                                                    {chapter.lectures.map((lecture, lIdx) => {
+                                                        const isActive = currentLecture.title === lecture.title;
+                                                        return (
+                                                            <button
+                                                                key={lIdx}
+                                                                onClick={() => setCurrentLecture(lecture)}
+                                                                className={`w-full text-left p-3 rounded-xl flex items-center gap-3 transition-all duration-200
+                                                                    ${isActive 
+                                                                        ? 'bg-toss-blueLight text-toss-blue font-medium' 
+                                                                        : 'hover:bg-toss-grey100 text-toss-grey700'
+                                                                    }`}
+                                                            >
+                                                                <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${isActive ? 'bg-toss-blue text-white' : 'bg-toss-grey200 text-toss-grey500'}`}>
+                                                                    {isActive ? <Icons.Play size={10} fill="currentColor"/> : <span className="text-[10px] font-bold">{lIdx + 1}</span>}
+                                                                </div>
+                                                                <div className="flex-1 min-w-0">
+                                                                    <div className="truncate text-[14px]">{lecture.title}</div>
+                                                                    <div className="text-[11px] opacity-60 mt-0.5">{lecture.duration}</div>
+                                                                </div>
+                                                            </button>
+                                                        )
+                                                    })}
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
-                                ))}
+                                ) : (
+                                    <div className="absolute inset-0 flex flex-col bg-yellow-50/50">
+                                        <div className="p-4 border-b border-yellow-100 bg-yellow-50 flex items-center justify-between">
+                                            <div className="flex items-center gap-2 text-yellow-800 text-sm font-bold">
+                                                <Icons.Edit3 size={16}/>
+                                                <span>강의 노트</span>
+                                            </div>
+                                            <button 
+                                                onClick={handleNoteSave}
+                                                className={`text-xs font-bold px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 
+                                                    ${isSaving ? 'bg-green-500 text-white' : 'bg-yellow-200 text-yellow-800 hover:bg-yellow-300'}`}
+                                            >
+                                                {isSaving ? <Icons.Check size={14}/> : <Icons.Save size={14}/>}
+                                                {isSaving ? '저장됨' : '저장'}
+                                            </button>
+                                        </div>
+                                        <textarea 
+                                            value={noteContent}
+                                            onChange={handleNoteChange}
+                                            className="flex-1 w-full p-6 resize-none focus:outline-none bg-transparent text-toss-grey800 leading-relaxed placeholder-toss-grey400"
+                                            placeholder="이 강의를 보며 얻은 인사이트나 핵심 내용을 기록하세요. 마도서(Grimoire)에 자동으로 동기화됩니다."
+                                            spellCheck="false"
+                                        ></textarea>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -581,9 +648,28 @@
         };
 
         // --- Component: Grimoire (Knowledge Archive) ---
-        const Grimoire = ({ courses, onPlayLecture }) => {
-            const [selectedNode, setSelectedNode] = useState(null); // { type: 'course'|'chapter'|'lecture', data: ... }
-            const [expandedNodes, setExpandedNodes] = useState({}); // { [id]: boolean }
+        const Grimoire = ({ courses, notes, onSaveNote, onPlayLecture }) => {
+            const [selectedNode, setSelectedNode] = useState(null); 
+            const [expandedNodes, setExpandedNodes] = useState({});
+            
+            // Note editing state for Grimoire
+            const [editContent, setEditContent] = useState('');
+            const [isSaving, setIsSaving] = useState(false);
+
+            useEffect(() => {
+                // When selecting a lecture, load the note
+                if (selectedNode?.type === 'lecture') {
+                    setEditContent(notes[selectedNode.data.videoId] || '');
+                }
+            }, [selectedNode, notes]);
+
+            const handleSaveInGrimoire = () => {
+                if (selectedNode?.type === 'lecture') {
+                    setIsSaving(true);
+                    onSaveNote(selectedNode.data.videoId, editContent);
+                    setTimeout(() => setIsSaving(false), 800);
+                }
+            };
 
             const toggleNode = (id) => {
                 setExpandedNodes(prev => ({ ...prev, [id]: !prev[id] }));
@@ -592,10 +678,9 @@
             const handleSelect = (type, data, parentCourse = null) => {
                 setSelectedNode({ type, data, parentCourse });
                 if (type === 'course') toggleNode(`c-${data.id}`);
-                if (type === 'chapter') toggleNode(`ch-${data.title}`); // Using title as ID for chapters as they don't have unique IDs
+                if (type === 'chapter') toggleNode(`ch-${data.title}`);
             };
 
-            // Recursive Tree Item Component
             const TreeItem = ({ label, icon: Icon, depth = 0, isOpen, hasChildren, onClick, onToggle, isSelected }) => (
                 <div className="select-none">
                     <div 
@@ -661,7 +746,7 @@
                                                         label={chapter.title}
                                                         icon={Icons.Layout}
                                                         hasChildren={true}
-                                                        isOpen={expandedNodes[`ch-${chapter.title}`]} // Note: Title collision risk if same chapter name exists
+                                                        isOpen={expandedNodes[`ch-${chapter.title}`]}
                                                         isSelected={selectedNode?.data === chapter}
                                                         onClick={() => handleSelect('chapter', chapter, course)}
                                                         onToggle={() => toggleNode(`ch-${chapter.title}`)}
@@ -725,26 +810,29 @@
                                 <div className="flex-1 overflow-y-auto custom-scroll p-6 bg-toss-bg/30">
                                     {selectedNode.type === 'lecture' ? (
                                         <div className="max-w-3xl mx-auto">
-                                            <div className="bg-white p-6 rounded-2xl shadow-sm border border-toss-grey200 mb-6">
-                                                <h4 className="font-bold text-lg mb-4 flex items-center gap-2">
-                                                    <Icons.FileText size={20} className="text-toss-grey600"/>
-                                                    요약 노트
-                                                </h4>
-                                                <div className="prose prose-sm text-toss-grey700 leading-relaxed space-y-4">
-                                                    <p className="bg-yellow-50 p-4 rounded-xl border border-yellow-100 text-yellow-800 text-sm">
-                                                        💡 <strong>핵심 포인트:</strong> 이 강의는 {selectedNode.parentCourse?.category} 분야의 본질을 다루고 있습니다. 
-                                                        지식을 단순 소비하는 것을 넘어, 실행으로 옮길 때 진정한 가치가 발생합니다.
-                                                    </p>
-                                                    <p>
-                                                        (여기에 사용자가 작성한 노트나, AI가 요약한 강의 내용이 들어갈 자리입니다. 
-                                                        현재는 데이터베이스 연동 전이므로 예시 텍스트가 표시됩니다.)
-                                                    </p>
-                                                    <ul className="list-disc pl-5 space-y-1">
-                                                        <li>첫 번째 핵심 개념에 대한 설명</li>
-                                                        <li>실전 적용을 위한 구체적인 방법론</li>
-                                                        <li>주의해야 할 점과 흔한 실수들</li>
-                                                    </ul>
+                                            {/* Note Editor in Grimoire */}
+                                            <div className="bg-yellow-50 rounded-2xl shadow-sm border border-yellow-200 mb-6 overflow-hidden">
+                                                <div className="px-6 py-4 border-b border-yellow-100 bg-yellow-100/50 flex items-center justify-between">
+                                                    <h4 className="font-bold text-yellow-800 text-sm flex items-center gap-2">
+                                                        <Icons.Edit3 size={16}/>
+                                                        나만의 노트
+                                                    </h4>
+                                                    <button 
+                                                        onClick={handleSaveInGrimoire}
+                                                        className={`text-xs font-bold px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 
+                                                            ${isSaving ? 'bg-green-500 text-white' : 'bg-white text-yellow-800 hover:bg-yellow-50 shadow-sm'}`}
+                                                    >
+                                                        {isSaving ? <Icons.Check size={14}/> : <Icons.Save size={14}/>}
+                                                        {isSaving ? '저장됨' : '저장'}
+                                                    </button>
                                                 </div>
+                                                <textarea 
+                                                    value={editContent}
+                                                    onChange={(e) => setEditContent(e.target.value)}
+                                                    className="w-full h-64 p-6 resize-none focus:outline-none bg-transparent text-toss-grey800 leading-relaxed placeholder-yellow-800/30"
+                                                    placeholder="여기에 자유롭게 노트를 작성하세요. 강의 플레이어와 자동으로 동기화됩니다."
+                                                    spellCheck="false"
+                                                ></textarea>
                                             </div>
 
                                             <button 
@@ -757,7 +845,6 @@
                                         </div>
                                     ) : (
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                            {/* Show children items as cards */}
                                             {selectedNode.type === 'course' && selectedNode.data.chapters.map((ch, i) => (
                                                 <div key={i} onClick={() => handleSelect('chapter', ch, selectedNode.data)} className="bg-white p-5 rounded-xl border border-toss-grey200 hover:border-toss-blue hover:shadow-md cursor-pointer transition-all">
                                                     <div className="text-xs font-bold text-toss-grey400 mb-1">Chapter {i}</div>
@@ -791,9 +878,26 @@
             const [selectedCategory, setSelectedCategory] = useState('ALL');
             const [selectedCourse, setSelectedCourse] = useState(null);
             const [recommendedLecture, setRecommendedLecture] = useState(null);
+            const [currentTab, setCurrentTab] = useState('HOME');
             
-            // Navigation State
-            const [currentTab, setCurrentTab] = useState('HOME'); // 'HOME' | 'GRIMOIRE'
+            // Global Note State
+            const [userNotes, setUserNotes] = useState(() => {
+                try {
+                    const saved = localStorage.getItem('jnj_notes');
+                    return saved ? JSON.parse(saved) : {};
+                } catch (e) {
+                    console.error("Failed to load notes", e);
+                    return {};
+                }
+            });
+
+            const handleSaveNote = (videoId, content) => {
+                setUserNotes(prev => {
+                    const newNotes = { ...prev, [videoId]: content };
+                    localStorage.setItem('jnj_notes', JSON.stringify(newNotes));
+                    return newNotes;
+                });
+            };
 
             const filteredCourses = useMemo(() => {
                 if (selectedCategory === 'ALL') return COURSES;
@@ -814,8 +918,6 @@
             };
 
             const handleRecommendation = (lecture) => {
-                // If in Grimoire tab, switch to home first? Or just open player.
-                // Let's just open player.
                 setSelectedCourse(lecture.courseObj);
                 setRecommendedLecture(lecture); 
             };
@@ -837,7 +939,6 @@
                                     <span className="text-lg font-bold text-toss-black tracking-tight hidden md:block">Archive</span>
                                 </div>
 
-                                {/* Navigation Tabs */}
                                 <div className="hidden md:flex bg-toss-grey200/50 p-1 rounded-xl">
                                     <button 
                                         onClick={() => setCurrentTab('HOME')}
@@ -871,7 +972,6 @@
                         </div>
                     </nav>
 
-                    {/* Mobile Navigation (Bottom) - Optional enhancement */}
                     <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-toss-grey200 p-2 z-40 flex justify-around">
                         <button onClick={() => setCurrentTab('HOME')} className={`flex flex-col items-center p-2 ${currentTab === 'HOME' ? 'text-toss-blue' : 'text-toss-grey400'}`}>
                             <Icons.Layout size={20} />
@@ -937,7 +1037,12 @@
                         </>
                     ) : (
                         <div className="pt-8">
-                            <Grimoire courses={COURSES} onPlayLecture={handlePlayFromGrimoire} />
+                            <Grimoire 
+                                courses={COURSES} 
+                                notes={userNotes}
+                                onSaveNote={handleSaveNote}
+                                onPlayLecture={handlePlayFromGrimoire} 
+                            />
                         </div>
                     )}
 
@@ -945,6 +1050,8 @@
                         <LecturePlayer 
                             course={selectedCourse}
                             initialLecture={recommendedLecture}
+                            notes={userNotes}
+                            onSaveNote={handleSaveNote}
                             onClose={() => { setSelectedCourse(null); setRecommendedLecture(null); }} 
                         />
                     )}
