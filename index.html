@@ -123,6 +123,8 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
         import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+        // Firebase Realtime Database imports
+        import { getDatabase, ref, push, onValue } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyAxay6-q869MxmJopDtogmT6A4vfXWtlEg",
@@ -136,8 +138,10 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const provider = new GoogleAuthProvider();
+        const db = getDatabase(app);
 
         window.firebaseAuth = { auth, provider, signInWithPopup, signOut, onAuthStateChanged };
+        window.firebaseDB = { db, ref, push, onValue };
     </script>
 
     <script type="text/babel">
@@ -214,6 +218,57 @@
                 completed: writtenNotes,
                 percentage: totalLectures === 0 ? 0 : Math.round((writtenNotes / totalLectures) * 100)
             };
+        };
+        
+        // --- Custom Hook for Firebase Captured Channels (NEW) ---
+        const useCapturedChannels = (userId) => {
+            const [channels, setChannels] = useState([]);
+            const [loading, setLoading] = useState(true);
+
+            useEffect(() => {
+                if (!userId) {
+                    setChannels([]);
+                    setLoading(false);
+                    return;
+                }
+
+                const { db, ref, onValue } = window.firebaseDB;
+                // Use a database path specific to the user for privacy (e.g., 'captured_channels/user_uid')
+                const channelsRef = ref(db, `captured_channels/${userId.replace(/[.#$/[\]]/g, '_')}`);
+                
+                // Realtime listener
+                const unsubscribe = onValue(channelsRef, (snapshot) => {
+                    const data = snapshot.val();
+                    const newChannels = [];
+                    if (data) {
+                        // Convert Firebase object to an array of channels
+                        Object.keys(data).forEach(key => {
+                            newChannels.push({ id: key, ...data[key] });
+                        });
+                    }
+                    setChannels(newChannels.reverse()); // Show newest first
+                    setLoading(false);
+                }, (error) => {
+                    console.error("Firebase fetch error for captured channels:", error);
+                    setLoading(false);
+                });
+
+                return () => unsubscribe(); // Cleanup listener on unmount
+            }, [userId]);
+
+            const saveChannel = (channelData) => {
+                 if (!userId) return;
+                 const { db, ref, push } = window.firebaseDB;
+                 const channelsRef = ref(db, `captured_channels/${userId.replace(/[.#$/[\]]/g, '_')}`);
+                 // Use push() to create a unique ID for the new channel
+                 push(channelsRef, {
+                    url: channelData.url,
+                    category: channelData.category,
+                    timestamp: Date.now()
+                 });
+            };
+
+            return { channels, loading, saveChannel };
         };
 
 
@@ -976,8 +1031,37 @@
             );
         };
 
-        // --- Component: Essence View (New Feature) ---
-        const EssenceView = ({ capturedChannels = [] }) => {
+        // --- Component: Captured Channels List in Modal (NEW) ---
+        const CapturedChannelsListInModal = ({ channels = [], getCategoryInfo }) => {
+             if (channels.length === 0) return null;
+
+             return (
+                 <div className="p-4 mt-4 bg-toss-grey50 rounded-xl border border-toss-grey200/50">
+                    <h4 className="text-xs font-bold text-toss-grey700 mb-2 flex items-center gap-1">
+                        <Icons.Folder size={12} className="text-yellow-600"/>
+                        임시 저장 목록 ({channels.length}개)
+                    </h4>
+                    <div className="space-y-1 max-h-40 overflow-y-auto custom-scroll">
+                        {channels.map((channel, index) => {
+                            const catInfo = getCategoryInfo(channel.category);
+                            return (
+                                <div key={index} className="flex justify-between items-center bg-white p-2 rounded-lg text-[11px] border border-toss-grey100 shadow-sm">
+                                    <a href={channel.url} target="_blank" className="text-toss-grey700 hover:text-toss-blue underline truncate max-w-[60%]">
+                                        {channel.url.substring(0, 40) + (channel.url.length > 40 ? '...' : '')}
+                                    </a>
+                                    <span className={`font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide shrink-0 ${catInfo?.color || 'bg-gray-100 text-gray-600'}`}>
+                                        {catInfo?.name || channel.category}
+                                    </span>
+                                </div>
+                            )
+                        })}
+                    </div>
+                 </div>
+             );
+        };
+
+        // --- Component: Essence View (Updated to remove captured list) ---
+        const EssenceView = ({ capturedChannelsLoading }) => {
             const [filter, setFilter] = useState('all');
             
             const filteredChannels = useMemo(() => {
@@ -997,37 +1081,7 @@
                         <h2 className="text-3xl font-bold text-toss-black mb-2">본질 강화</h2>
                         <p className="text-toss-grey600">알고리즘의 방해 없이, 오직 성장에만 집중하세요.</p>
                      </div>
-
-                    {/* Captured Channels Section */}
-                    {capturedChannels.length > 0 && (
-                        <div className="mb-12 p-6 bg-yellow-50 rounded-2xl border border-yellow-200 animate-slide-up">
-                            <h3 className="text-xl font-bold text-toss-black mb-4 flex items-center gap-2">
-                                <Icons.Save size={20} className="text-yellow-600"/>
-                                <span>임시 캡쳐된 채널 ({capturedChannels.length}개)</span>
-                            </h3>
-                            <p className="text-sm text-toss-grey700 mb-4">
-                                이 채널들은 `essence_data.js` 파일에 반영되기 전까지 임시 저장소(브라우저)에 보관됩니다.
-                            </p>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                {capturedChannels.map((channel, index) => {
-                                    const catInfo = getCategoryInfo(channel.category);
-                                    return (
-                                        <div key={index} className="bg-white p-4 rounded-xl border border-yellow-300 shadow-sm">
-                                            <div className="flex justify-between items-start">
-                                                <h4 className="font-bold text-toss-black text-sm line-clamp-1">{channel.title}</h4>
-                                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide ${catInfo?.color || 'bg-gray-100 text-gray-600'}`}>
-                                                    {catInfo?.name || channel.category}
-                                                </span>
-                                            </div>
-                                            <p className="text-[11px] text-toss-grey500 mt-1 line-clamp-2">{channel.desc}</p>
-                                            <a href={channel.url} target="_blank" className="text-[10px] text-toss-blue underline mt-2 block truncate">{channel.url}</a>
-                                        </div>
-                                    )
-                                })}
-                            </div>
-                        </div>
-                    )}
-
+                    
                     {/* Filter Bar */}
                     <div className="mb-8 overflow-x-auto scrollbar-hide pb-2">
                         <div className="flex gap-2 min-w-max">
@@ -1046,6 +1100,14 @@
                             ))}
                         </div>
                     </div>
+
+                    {/* Loading Indicator for Channels */}
+                    {capturedChannelsLoading && (
+                        <div className="text-center py-4 text-toss-grey500 text-sm">
+                            <span className="w-4 h-4 border-2 border-toss-grey300 border-t-toss-grey600 rounded-full animate-spin inline-block mr-2"></span>
+                            채널 목록을 불러오는 중...
+                        </div>
+                    )}
 
                     {/* Grid */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -1086,28 +1148,36 @@
             );
         };
 
-        // --- Component: Capture Modal for Essence Channels ---
-        const CaptureModal = ({ categories, onSave, onClose }) => {
+        // --- Component: Capture Modal for Essence Channels (Updated) ---
+        const CaptureModal = ({ categories, onSave, channels, getCategoryInfo, onClose }) => {
             const [url, setUrl] = useState('');
-            const [title, setTitle] = useState('');
-            const [desc, setDesc] = useState('');
-            const [category, setCategory] = useState(categories[0]?.id || 'all');
+            const [category, setCategory] = useState(categories.find(c => c.id !== 'all')?.id || 'business'); // Default to a non-all category
             const [error, setError] = useState('');
+
+            useEffect(() => {
+                // Try to paste clipboard content on mount if available (for easy link capture)
+                navigator.clipboard.readText().then(text => {
+                    const urlRegex = /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/.+/i;
+                    if (urlRegex.test(text)) {
+                         setUrl(text);
+                    }
+                }).catch(err => {
+                    // console.log('Clipboard access denied or failed:', err);
+                });
+            }, []);
 
             const handleSubmit = () => {
                 const urlRegex = /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/.+/i;
                 if (!urlRegex.test(url)) {
-                    setError('유효한 YouTube URL을 입력해주세요.');
-                    return;
-                }
-                if (!title || !desc) {
-                    setError('채널 이름과 설명을 모두 입력해주세요.');
+                    setError('유효한 YouTube URL을 입력해주세요. (https://youtu.be/xxx 형식)');
                     return;
                 }
                 
                 setError('');
-                onSave({ url, title, desc, category });
-                onClose();
+                onSave({ url, category });
+                setUrl('');
+                // Optionally keep category selected
+                // onClose();
             };
 
             return (
@@ -1120,8 +1190,8 @@
                             </button>
                         </div>
                         
-                        <div className="p-6 space-y-4 custom-scroll max-h-[80vh] md:max-h-[60vh] flex-1 overflow-y-auto">
-                            <p className="text-sm text-toss-grey600">유튜브에서 찾은 인사이트 채널을 임시 저장하세요. 페이지 관리 시 DB로 반영됩니다.</p>
+                        <div className="p-6 space-y-4 flex-1 overflow-y-auto">
+                            <p className="text-sm text-toss-grey600">유튜브 채널 URL과 카테고리를 저장하면 DB에 추가됩니다. (DB 파일 수정 시 반영 가능)</p>
                             
                             {error && (
                                 <div className="p-3 bg-red-50 border border-red-200 text-red-500 text-sm rounded-xl font-medium">
@@ -1136,32 +1206,9 @@
                                     type="url"
                                     value={url}
                                     onChange={(e) => {setUrl(e.target.value); setError('');}}
-                                    placeholder="https://www.youtube.com/@channelname" 
+                                    placeholder="https://www.youtube.com/@channelname 또는 https://youtu.be/videoId" 
                                     className="w-full px-4 py-3 border border-toss-grey200 rounded-xl focus:ring-1 focus:ring-toss-blue focus:border-toss-blue text-sm"
                                 />
-                            </div>
-
-                            {/* Channel Title */}
-                            <div>
-                                <label className="block text-xs font-bold text-toss-grey700 mb-1">채널 이름</label>
-                                <input 
-                                    type="text"
-                                    value={title}
-                                    onChange={(e) => {setTitle(e.target.value); setError('');}}
-                                    placeholder="예: 곽상빈의 천재혁명" 
-                                    className="w-full px-4 py-3 border border-toss-grey200 rounded-xl focus:ring-1 focus:ring-toss-blue focus:border-toss-blue text-sm"
-                                />
-                            </div>
-
-                            {/* Channel Description */}
-                            <div>
-                                <label className="block text-xs font-bold text-toss-grey700 mb-1">설명 (Desc)</label>
-                                <textarea
-                                    value={desc}
-                                    onChange={(e) => {setDesc(e.target.value); setError('');}}
-                                    placeholder="이 채널에서 어떤 통찰을 얻을 수 있는지 간단히 요약해주세요." 
-                                    className="w-full h-20 px-4 py-3 border border-toss-grey200 rounded-xl focus:ring-1 focus:ring-toss-blue focus:border-toss-blue text-sm resize-none"
-                                ></textarea>
                             </div>
 
                             {/* Category Selection */}
@@ -1172,11 +1219,11 @@
                                     onChange={(e) => setCategory(e.target.value)}
                                     className="w-full px-4 py-3 border border-toss-grey200 rounded-xl focus:ring-1 focus:ring-toss-blue focus:border-toss-blue text-sm bg-white"
                                 >
-                                    {categories.map(cat => (
+                                    {categories.filter(c => c.id !== 'all').map(cat => (
                                         <option key={cat.id} value={cat.id}>{cat.name}</option>
                                     ))}
                                 </select>
-                                <p className="text-[10px] text-toss-grey400 mt-1">새 카테고리 추가는 DB 파일 수정 시 수동으로 반영해야 합니다.</p>
+                                <p className="text-[10px] text-toss-grey400 mt-1">DB에 등록된 카테고리만 선택 가능합니다. 새 카테고리 추가는 DB 파일 수정 시 수동으로 반영해야 합니다.</p>
                             </div>
                         </div>
                         
@@ -1185,8 +1232,11 @@
                                 onClick={handleSubmit}
                                 className="w-full py-3 bg-toss-blue text-white rounded-xl font-bold hover:bg-blue-600 transition-colors"
                             >
-                                캡쳐하고 임시 저장하기
+                                캡쳐하고 임시 저장하기 (DB에 동기화)
                             </button>
+
+                            {/* Captured Channels List is displayed here (Request 2) */}
+                            <CapturedChannelsListInModal channels={channels} getCategoryInfo={getCategoryInfo} />
                         </div>
                     </div>
                 </div>
@@ -1206,8 +1256,11 @@
             const [searchQuery, setSearchQuery] = useState('');
             // New state for capture modal
             const [showCaptureModal, setShowCaptureModal] = useState(false);
+            
+            // Firebase Hook for Captured Channels (Request 3)
+            const { channels: capturedChannels, loading: capturedChannelsLoading, saveChannel: handleSaveCapturedChannel } = useCapturedChannels(user?.uid);
 
-            // Global Note State
+            // Global Note State (Still using localStorage as no request to change it)
             const [userNotes, setUserNotes] = useState(() => {
                 try {
                     const saved = localStorage.getItem('jnj_notes');
@@ -1218,24 +1271,6 @@
                 }
             });
 
-            // New state for captured channels, using local storage
-            const [capturedChannels, setCapturedChannels] = useState(() => {
-                try {
-                    const saved = localStorage.getItem('jnj_captured_channels');
-                    return saved ? JSON.parse(saved) : [];
-                } catch (e) {
-                    console.error("Failed to load captured channels", e);
-                    return [];
-                }
-            });
-
-            const handleSaveCapturedChannel = (channelData) => {
-                setCapturedChannels(prev => {
-                    const newChannels = [...prev, channelData];
-                    localStorage.setItem('jnj_captured_channels', JSON.stringify(newChannels));
-                    return newChannels;
-                });
-            };
 
             const handleSaveNote = (videoId, content) => {
                 setUserNotes(prev => {
@@ -1283,8 +1318,13 @@
             const getUserName = (email) => {
                 if (email === 'choijihoon9988@gmail.com') return '재영';
                 if (email === 'jihoo0420@gmail.com') return '지후';
-                return '지후'; 
+                // Use the part before @ as fallback
+                return email.split('@')[0]; 
             };
+            
+            // Helper for Capture Modal
+            const getCategoryInfo = (id) => ESSENCE_DATA.categories.find(c => c.id === id);
+
 
             const handleRecommendation = (lecture) => {
                 setShowSlotMachine(false); 
@@ -1324,6 +1364,9 @@
                             title="새 채널 캡쳐하기"
                         >
                             <Icons.Plus size={24} className="group-hover:rotate-90 transition-transform duration-300" />
+                            {capturedChannels.length > 0 && (
+                                <span className="absolute -top-1 -right-1 w-5 h-5 bg-yellow-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white">{capturedChannels.length}</span>
+                            )}
                         </button>
                     )}
 
@@ -1519,7 +1562,7 @@
                         </div>
                     ) : (
                         <div className="pt-8">
-                            <EssenceView capturedChannels={capturedChannels} />
+                            <EssenceView capturedChannelsLoading={capturedChannelsLoading} />
                         </div>
                     )}
 
@@ -1537,6 +1580,8 @@
                         <CaptureModal
                             categories={ESSENCE_DATA.categories}
                             onSave={handleSaveCapturedChannel}
+                            channels={capturedChannels} // Pass Firebase data to modal
+                            getCategoryInfo={getCategoryInfo} // Pass helper function
                             onClose={() => setShowCaptureModal(false)}
                         />
                     )}
