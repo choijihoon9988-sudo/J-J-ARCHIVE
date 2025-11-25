@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="ko" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>J&J ARCHIVE | Knowledge for the Chosen Few</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        serif: ['Playfair Display', 'serif'],
+                    },
+                    colors: {
+                        brand: {
+                            black: '#050505',
+                            dark: '#0a0a0a',
+                            surface: '#121212',
+                            gold: '#D4AF37',
+                            gray: '#27272a',
+                            burgundy: '#4A0404'
+                        }
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.6s ease-out',
+                        'slide-up': 'slideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1)',
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0' },
+                            '100%': { opacity: '1' },
+                        },
+                        slideUp: {
+                            '0%': { transform: 'translateY(40px)', opacity: '0' },
+                            '100%': { transform: 'translateY(0)', opacity: '1' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <script src="./jachung_data.js"></script>
+    <script src="./mbti_data.js"></script>
+    <script src="./insta_data.js"></script>
+    <script src="./writing_data.js"></script>
+    <script src="./leeseop_data.js"></script> 
+    
+    <style>
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #050505; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #555; }
+        
+        .no-select {
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+
+        .scrollbar-hide {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+    </style>
+</head>
+<body class="bg-brand-black text-white antialiased overflow-x-hidden selection:bg-brand-gold selection:text-black">
+    <div id="root"></div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+        import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+
+        // 사용자가 제공한 Firebase 설정값 적용
+        const firebaseConfig = {
+            apiKey: "AIzaSyAxay6-q869MxmJopDtogmT6A4vfXWtlEg",
+            authDomain: "jnj-archive.firebaseapp.com",
+            projectId: "jnj-archive",
+            storageBucket: "jnj-archive.firebasestorage.app",
+            messagingSenderId: "88774036980",
+            appId: "1:88774036980:web:f1d25f87f063d7037dbda1"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const provider = new GoogleAuthProvider();
+
+        // 전역 객체에 Firebase 기능 노출 (React에서 사용하기 위함)
+        window.firebaseAuth = { auth, provider, signInWithPopup, signOut, onAuthStateChanged };
+    </script>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+        const { Play, Lock, ChevronRight, ChevronDown, X, User, LogOut, BookOpen, Brain, Briefcase, Heart, Zap, ExternalLink, Shield } = lucide;
+
+        // ---------------------------------------------------------
+        // 유틸리티 함수
+        // ---------------------------------------------------------
+        const getYoutubeThumbnail = (videoId) => {
+            return `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+        };
+
+        const openYoutubeLink = (videoId) => {
+            const url = `https://www.youtube.com/watch?v=${videoId}`;
+            window.open(url, '_blank');
+        };
+
+        // ---------------------------------------------------------
+        // 데이터 통합 로직
+        // ---------------------------------------------------------
+        const CATEGORIES = {
+            BUSINESS: { id: 'business', name: 'Business & Wealth', icon: <Briefcase size={14} />, color: 'text-blue-400' },
+            MINDSET: { id: 'mindset', name: 'Hyper-Thinking', icon: <Brain size={14} />, color: 'text-purple-400' },
+            PSYCHOLOGY: { id: 'psychology', name: 'Psychology & Love', icon: <Heart size={14} />, color: 'text-brand-burgundy' },
+            TECH: { id: 'tech', name: 'AI & Tech', icon: <Zap size={14} />, color: 'text-green-400' },
+        };
+
+        let BASE_COURSES = []; // 기본 더미 데이터 제거, 외부 데이터만 로드
+
+        const EXTERNAL_DATA_KEYS = [
+            'JACHUNG_COURSE_DATA', 
+            'COURSE_DATA_MBTI',   
+            'COURSE_DATA_INSTA',   
+            'COURSE_DATA_WRITING', 
+            'COURSE_DATA_LEESEOP' 
+        ];
+
+        console.group("Archive Data Loading...");
+        EXTERNAL_DATA_KEYS.forEach(key => {
+            if (window[key]) {
+                const jData = window[key];
+                const matchedCategory = Object.values(CATEGORIES).find(c => c.id === jData.category) || CATEGORIES.TECH;
+                
+                const specialCourse = {
+                    id: jData.id,
+                    title: jData.title,
+                    instructor: jData.instructor,
+                    category: matchedCategory,
+                    description: jData.description,
+                    image: jData.image,
+                    isComplex: true, 
+                    curriculum: jData.chapters
+                };
+                
+                BASE_COURSES = [specialCourse, ...BASE_COURSES];
+                console.log(`[SUCCESS] Loaded Course: ${jData.title}`);
+            } else {
+                console.warn(`[MISSING] Data not found for key: ${key}. Check if the .js file is loaded correctly.`);
+            }
+        });
+        console.groupEnd();
+
+        // ---------------------------------------------------------
+        // [중요] 허용된 이메일 목록 수정 완료
+        // ---------------------------------------------------------
+        const ALLOWED_EMAILS = [
+            "choijihoon9988@gmail.com",  // 사용자 본인
+            "jihoo0420@gmail.com"        // 지후 (친구)
+        ];
+
+        // ---------------------------------------------------------
+        // 컴포넌트: 로그인 화면
+        // ---------------------------------------------------------
+        const LoginScreen = ({ onLogin }) => {
+            const [error, setError] = useState(null);
+            const [isAuthenticating, setIsAuthenticating] = useState(false);
+
+            const handleSignIn = () => {
+                setIsAuthenticating(true);
+                setError(null);
+                const { auth, provider, signInWithPopup } = window.firebaseAuth;
+                
+                signInWithPopup(auth, provider)
+                    .then((result) => {
+                        const email = result.user.email;
+                        if (ALLOWED_EMAILS.includes(email)) {
+                            onLogin(result.user);
+                        } else {
+                            setError("Access Denied: 귀하는 선택받은 사용자가 아닙니다.");
+                            window.firebaseAuth.signOut(auth);
+                            setIsAuthenticating(false);
+                        }
+                    })
+                    .catch((error) => {
+                        setError(error.message);
+                        setIsAuthenticating(false);
+                    });
+            };
+
+            return (
+                <div className="h-screen w-full flex flex-col items-center justify-center bg-brand-black relative overflow-hidden no-select">
+                    <div className="absolute top-0 left-0 w-full h-full opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-brand-gold blur-[180px] opacity-5 rounded-full animate-pulse-slow"></div>
+
+                    <div className="z-10 text-center space-y-10 max-w-md px-6 animate-fade-in">
+                        <div className="space-y-4">
+                            <h1 className="text-6xl md:text-7xl font-serif text-white tracking-tighter">J&J Archive</h1>
+                            <p className="text-brand-gold tracking-[0.3em] text-[10px] font-bold uppercase">Knowledge for the Chosen Few</p>
+                        </div>
+                        
+                        <div className="h-px w-16 bg-gray-800 mx-auto"></div>
+
+                        <p className="text-gray-500 font-sans text-xs leading-relaxed tracking-wide">
+                            본 아카이브는 폐쇄형으로 운영됩니다.<br/>
+                            사전에 인가된 계정으로만 접근이 가능합니다.
+                        </p>
+
+                        <button 
+                            onClick={handleSignIn}
+                            disabled={isAuthenticating}
+                            className="group relative px-10 py-4 bg-white text-black font-semibold text-xs tracking-widest uppercase transition-all hover:bg-gray-200 disabled:opacity-50"
+                        >
+                            <span className="relative z-10 flex items-center gap-3">
+                                {isAuthenticating ? 'VERIFYING...' : <><Lock size={14} /> ENTER ARCHIVE</>}
+                            </span>
+                        </button>
+
+                        {error && (
+                            <div className="mt-4 p-4 bg-red-950/30 border border-red-900/50 text-red-400 text-[10px] tracking-wide">
+                                ⚠ {error}
+                            </div>
+                        )}
+                    </div>
+                    <div className="absolute bottom-8 text-gray-800 text-[9px] font-mono">
+                        SECURE CONNECTION • ENCRYPTED • V.2.1.0
+                    </div>
+                </div>
+            );
+        };
+
+        // ---------------------------------------------------------
+        // 컴포넌트: 보안 영상 런처 (Deep Link)
+        // ---------------------------------------------------------
+        const SecureVideoLauncher = ({ videoId, title }) => {
+            const thumbnailUrl = getYoutubeThumbnail(videoId);
+
+            return (
+                <div className="relative w-full h-full bg-brand-surface group overflow-hidden">
+                    <img 
+                        src={thumbnailUrl} 
+                        alt="Restricted Content" 
+                        className="absolute inset-0 w-full h-full object-cover opacity-30 blur-sm scale-105 group-hover:scale-100 group-hover:blur-0 transition-all duration-700"
+                    />
+                    <div className="absolute inset-0 bg-black/60 group-hover:bg-black/40 transition-colors duration-500"></div>
+
+                    <div className="absolute inset-0 flex flex-col items-center justify-center z-10">
+                        <div className="mb-6 opacity-80">
+                            <Shield size={32} className="text-brand-gold mb-2 mx-auto" />
+                            <p className="text-[10px] text-brand-gold uppercase tracking-[0.3em] text-center">Secure Connection</p>
+                        </div>
+
+                        <button 
+                            onClick={() => openYoutubeLink(videoId)}
+                            className="group/btn relative px-8 py-4 bg-white/10 backdrop-blur-md border border-white/20 hover:bg-brand-gold hover:border-brand-gold transition-all duration-300 rounded-sm"
+                        >
+                            <span className="flex items-center gap-3 text-white group-hover/btn:text-black font-bold text-xs tracking-widest uppercase">
+                                <ExternalLink size={16} />
+                                Access Video Source
+                            </span>
+                        </button>
+                        
+                        <p className="mt-6 text-[10px] text-gray-400 max-w-xs text-center leading-relaxed">
+                            보안을 위해 외부 앱(YouTube)에서 재생됩니다.<br/>
+                            시청 후 다시 아카이브로 돌아오세요.
+                        </p>
+                    </div>
+                </div>
+            );
+        };
+
+        // ---------------------------------------------------------
+        // 컴포넌트: 단일 영상 뷰어 (호환성 유지용)
+        // ---------------------------------------------------------
+        const SimpleVideoPlayer = ({ videoId, title, onClose }) => {
+            useEffect(() => {
+                document.body.style.overflow = 'hidden';
+                return () => document.body.style.overflow = 'unset';
+            }, []);
+
+            return (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-md animate-fade-in p-0 md:p-8">
+                    <button onClick={onClose} className="absolute top-6 right-6 text-white/40 hover:text-white transition-colors z-50 p-2 hover:bg-white/10 rounded-full">
+                        <X size={28} />
+                    </button>
+                    <div className="w-full max-w-4xl flex flex-col gap-6">
+                        <div className="relative w-full aspect-video bg-black shadow-2xl border border-white/5 overflow-hidden rounded-sm">
+                            <SecureVideoLauncher videoId={videoId} title={title} />
+                        </div>
+                        <div className="hidden md:block px-2 animate-slide-up text-center">
+                            <h2 className="text-2xl font-serif text-white mb-2">{title}</h2>
+                            <p className="text-xs text-gray-500 uppercase tracking-widest">Single Lecture Mode</p>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // ---------------------------------------------------------
+        // 컴포넌트: LMS 코스 상세 (Deep Link 적용됨)
+        // ---------------------------------------------------------
+        const CourseDetail = ({ course, onClose }) => {
+            const [currentChapterIndex, setCurrentChapterIndex] = useState(0);
+            const [currentLectureIndex, setCurrentLectureIndex] = useState(0);
+            const [expandedChapters, setExpandedChapters] = useState({0: true}); 
+
+            const currentLecture = course.curriculum[currentChapterIndex].lectures[currentLectureIndex];
+
+            useEffect(() => {
+                document.body.style.overflow = 'hidden';
+                return () => document.body.style.overflow = 'unset';
+            }, []);
+
+            const toggleChapter = (idx) => {
+                setExpandedChapters(prev => ({...prev, [idx]: !prev[idx]}));
+            };
+
+            const selectLecture = (cIdx, lIdx) => {
+                setCurrentChapterIndex(cIdx);
+                setCurrentLectureIndex(lIdx);
+            };
+
+            return (
+                <div className="fixed inset-0 z-50 flex bg-black/95 backdrop-blur-xl animate-fade-in text-white overflow-hidden">
+                    
+                    {/* [왼쪽] 런처 영역 */}
+                    <div className="flex-1 flex flex-col h-full relative">
+                         <div className="h-16 flex items-center px-6 border-b border-white/10 bg-brand-black/50">
+                            <button onClick={onClose} className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors text-xs tracking-widest uppercase">
+                                <ChevronRight className="rotate-180" size={14} /> Back to Archive
+                            </button>
+                        </div>
+
+                        <div className="flex-1 bg-black flex items-center justify-center p-4 md:p-8 overflow-y-auto">
+                            <div className="w-full max-w-5xl aspect-video bg-brand-surface border border-white/5 relative shadow-2xl">
+                                <SecureVideoLauncher 
+                                    videoId={currentLecture.videoId} 
+                                    title={currentLecture.title} 
+                                />
+                            </div>
+                        </div>
+
+                        <div className="h-24 bg-brand-surface border-t border-white/10 px-8 flex flex-col justify-center">
+                            <div className="flex items-center gap-3 mb-2">
+                                <span className="px-2 py-0.5 bg-brand-gold/10 border border-brand-gold/20 text-brand-gold text-[9px] font-bold uppercase tracking-widest rounded-sm">
+                                    Current Class
+                                </span>
+                                <span className="text-gray-500 text-[10px] font-mono tracking-widest">
+                                    {currentLecture.duration}
+                                </span>
+                            </div>
+                            <h2 className="text-xl font-serif text-white">{currentLecture.title}</h2>
+                        </div>
+                    </div>
+
+                    {/* [오른쪽] 커리큘럼 사이드바 */}
+                    <div className="w-96 bg-brand-black border-l border-white/10 flex flex-col h-full overflow-hidden">
+                        <div className="p-6 border-b border-white/10 bg-brand-surface/50">
+                            <h3 className="font-serif text-xl mb-1">{course.title}</h3>
+                            <p className="text-xs text-gray-500">{course.curriculum.length} Chapters • Automation Master</p>
+                        </div>
+                        
+                        <div className="flex-1 overflow-y-auto custom-scrollbar">
+                            {course.curriculum.map((chapter, cIdx) => (
+                                <div key={cIdx} className="border-b border-white/5">
+                                    <button 
+                                        onClick={() => toggleChapter(cIdx)}
+                                        className="w-full flex items-center justify-between p-4 hover:bg-white/5 transition-colors text-left group"
+                                    >
+                                        <div>
+                                            <p className="text-[9px] text-brand-gold uppercase tracking-widest font-bold mb-1">Chapter {cIdx}</p>
+                                            <h4 className="text-sm font-medium text-gray-300 group-hover:text-white transition-colors line-clamp-1">{chapter.title}</h4>
+                                        </div>
+                                        <ChevronDown size={14} className={`text-gray-500 transition-transform duration-300 ${expandedChapters[cIdx] ? 'rotate-180' : ''}`} />
+                                    </button>
+
+                                    <div className={`bg-brand-surface overflow-hidden transition-all duration-300 ${expandedChapters[cIdx] ? 'max-h-[1000px]' : 'max-h-0'}`}>
+                                        {chapter.lectures.map((lecture, lIdx) => {
+                                            const isActive = currentChapterIndex === cIdx && currentLectureIndex === lIdx;
+                                            return (
+                                                <button 
+                                                    key={lIdx}
+                                                    onClick={() => selectLecture(cIdx, lIdx)}
+                                                    className={`w-full flex items-start gap-3 p-3 pl-6 hover:bg-white/5 transition-colors text-left border-l-2 ${isActive ? 'border-brand-gold bg-brand-gold/5' : 'border-transparent'}`}
+                                                >
+                                                    <div className={`mt-0.5 ${isActive ? 'text-brand-gold' : 'text-gray-600'}`}>
+                                                        {isActive ? <Play size={12} fill="currentColor" /> : <div className="w-3 h-3 rounded-full border border-gray-600"></div>}
+                                                    </div>
+                                                    <div>
+                                                        <p className={`text-xs mb-1 line-clamp-2 ${isActive ? 'text-white font-medium' : 'text-gray-400'}`}>
+                                                            {lecture.title}
+                                                        </p>
+                                                        <p className="text-[9px] text-gray-600 font-mono">{lecture.duration}</p>
+                                                    </div>
+                                                </button>
+                                            )
+                                        })}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // ---------------------------------------------------------
+        // 컴포넌트: 메인 대시보드
+        // ---------------------------------------------------------
+        const CourseCard = ({ course, onClick }) => {
+            return (
+                <div 
+                    onClick={() => onClick(course)}
+                    className="group relative cursor-pointer w-full aspect-[16/10] overflow-hidden rounded-sm bg-brand-surface transition-all duration-700 hover:scale-[1.01] hover:shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/5 hover:border-brand-gold/30"
+                >
+                    <img 
+                        src={course.image} 
+                        alt={course.title} 
+                        className="absolute inset-0 w-full h-full object-cover opacity-60 transition-transform duration-1000 group-hover:scale-110 group-hover:opacity-100"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent opacity-90 transition-opacity duration-700 group-hover:opacity-60"></div>
+
+                    <div className="absolute bottom-0 left-0 w-full p-6 md:p-8 translate-y-4 transition-transform duration-500 group-hover:translate-y-0">
+                        <div className="flex items-center gap-2 mb-3 opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-100 transform -translate-x-2 group-hover:translate-x-0">
+                            <span className={`text-[9px] font-bold tracking-[0.2em] uppercase px-2 py-1 bg-white/10 backdrop-blur-sm rounded-sm ${course.category.color} border border-white/5`}>
+                                {course.category.name}
+                            </span>
+                            {course.isComplex && (
+                                <span className="text-[9px] font-bold tracking-[0.2em] uppercase px-2 py-1 bg-brand-gold text-black rounded-sm border border-brand-gold">
+                                    MASTER CLASS
+                                </span>
+                            )}
+                        </div>
+                        
+                        <p className="text-gray-400 text-[10px] font-bold tracking-widest uppercase mb-2">
+                            {course.instructor}
+                        </p>
+                        
+                        <h3 className="text-xl md:text-2xl font-serif text-white leading-tight mb-3 group-hover:text-brand-gold transition-colors duration-300">
+                            {course.title}
+                        </h3>
+
+                        <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-[grid-template-rows] duration-500">
+                            <div className="overflow-hidden">
+                                <p className="text-gray-300 text-xs leading-relaxed font-light border-l border-brand-gold/50 pl-3 mb-4 opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-200">
+                                    {course.description}
+                                </p>
+                                <div className="flex items-center gap-2 text-[10px] font-bold text-white uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-300">
+                                    <div className="w-8 h-8 rounded-full bg-white text-black flex items-center justify-center hover:bg-brand-gold transition-colors">
+                                        <Play size={12} fill="currentColor" />
+                                    </div>
+                                    <span>{course.isComplex ? 'Enter Classroom' : 'Watch Class'}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const Dashboard = ({ user, onLogout }) => {
+            const [selectedCourse, setSelectedCourse] = useState(null);
+            const [filter, setFilter] = useState('ALL');
+
+            const filteredCourses = filter === 'ALL' 
+                ? BASE_COURSES 
+                : BASE_COURSES.filter(c => c.category.id === filter);
+
+            return (
+                <div className="min-h-screen bg-brand-dark pb-20 no-select">
+                    <nav className="sticky top-0 z-40 bg-brand-black/80 backdrop-blur-lg border-b border-white/5">
+                        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                                <span className="text-lg font-serif text-white font-bold tracking-tight">J&J Archive</span>
+                                <span className="hidden md:inline-block h-3 w-px bg-gray-800"></span>
+                                <span className="hidden md:inline-block text-[10px] text-gray-600 tracking-widest uppercase">For Jihoo Only</span>
+                            </div>
+                            
+                            <div className="flex items-center gap-6">
+                                <div className="hidden md:flex items-center gap-3 text-[10px] text-gray-500 font-mono">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
+                                    <span>{user.email}</span>
+                                </div>
+                                <button onClick={onLogout} className="text-gray-500 hover:text-white transition-colors">
+                                    <LogOut size={16} />
+                                </button>
+                            </div>
+                        </div>
+                    </nav>
+
+                    <header className="max-w-7xl mx-auto px-6 py-16 md:py-24">
+                        <h1 className="text-4xl md:text-6xl font-serif text-white mb-6 animate-slide-up leading-tight">
+                            Welcome back, <br/>
+                            <span className="text-gray-600 italic">Initiate.</span>
+                        </h1>
+                        <p className="text-gray-400 max-w-xl text-sm font-light leading-relaxed animate-slide-up" style={{animationDelay: '0.1s'}}>
+                            당신의 성공 알고리즘을 위한 데이터베이스가 준비되었습니다.<br/>
+                            외부의 소음을 차단하고, 본질에 집중하십시오.
+                        </p>
+                    </header>
+
+                    <div className="max-w-7xl mx-auto px-6 mb-12 overflow-x-auto scrollbar-hide">
+                        <div className="flex gap-3 min-w-max pb-4">
+                            <button 
+                                onClick={() => setFilter('ALL')}
+                                className={`px-5 py-2.5 text-[10px] font-bold tracking-widest uppercase border transition-all duration-300 rounded-sm ${filter === 'ALL' ? 'border-brand-gold text-brand-gold bg-brand-gold/5' : 'border-white/10 text-gray-500 hover:border-white/30 hover:text-white'}`}
+                            >
+                                All Archive
+                            </button>
+                            {Object.values(CATEGORIES).map(cat => (
+                                <button 
+                                    key={cat.id}
+                                    onClick={() => setFilter(cat.id)}
+                                    className={`flex items-center gap-2 px-5 py-2.5 text-[10px] font-bold tracking-widest uppercase border transition-all duration-300 rounded-sm ${filter === cat.id ? `${cat.color} border-${cat.color.split('-')[1]}-400 text-white bg-white/5` : 'border-white/10 text-gray-500 hover:border-white/30 hover:text-white'}`}
+                                >
+                                    {cat.icon}
+                                    {cat.name}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <main className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-slide-up" style={{animationDelay: '0.2s'}}>
+                        {filteredCourses.map(course => (
+                            <CourseCard 
+                                key={course.id} 
+                                course={course} 
+                                onClick={setSelectedCourse} 
+                            />
+                        ))}
+                    </main>
+
+                    {selectedCourse && (
+                        selectedCourse.isComplex ? (
+                            <CourseDetail
+                                course={selectedCourse}
+                                onClose={() => setSelectedCourse(null)}
+                            />
+                        ) : (
+                            <SimpleVideoPlayer 
+                                videoId={selectedCourse.youtubeId} 
+                                title={selectedCourse.title}
+                                onClose={() => setSelectedCourse(null)} 
+                            />
+                        )
+                    )}
+
+                    <footer className="max-w-7xl mx-auto px-6 mt-32 border-t border-white/5 pt-8 text-center md:text-left">
+                        <p className="text-[10px] text-gray-700 font-mono tracking-widest uppercase">
+                            J&J Archive © 2024 | Confidential Material | Unauthorized distribution prohibited.
+                        </p>
+                    </footer>
+                </div>
+            );
+        };
+
+        const App = () => {
+            const [user, setUser] = useState(null);
+            const [loading, setLoading] = useState(true);
+
+            useEffect(() => {
+                const { auth, onAuthStateChanged } = window.firebaseAuth;
+                const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+                    if (currentUser && ALLOWED_EMAILS.includes(currentUser.email)) {
+                        setUser(currentUser);
+                    } else {
+                        if (currentUser) {
+                            window.firebaseAuth.signOut(auth);
+                        }
+                        setUser(null);
+                    }
+                    setLoading(false);
+                });
+                return () => unsubscribe();
+            }, []);
+
+            const handleLogout = () => {
+                const { auth, signOut } = window.firebaseAuth;
+                signOut(auth).then(() => setUser(null));
+            };
+
+            if (loading) return (
+                <div className="h-screen bg-black flex flex-col items-center justify-center gap-4">
+                    <div className="w-8 h-8 border-2 border-brand-gold border-t-transparent rounded-full animate-spin"></div>
+                    <div className="text-brand-gold text-[10px] tracking-[0.5em] animate-pulse">SYSTEM LOADING...</div>
+                </div>
+            );
+
+            return user ? <Dashboard user={user} onLogout={handleLogout} /> : <LoginScreen onLogin={setUser} />;
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+    <script>
+        setTimeout(() => {
+            lucide.createIcons();
+        }, 100);
+    </script>
+</body>
+</html>
