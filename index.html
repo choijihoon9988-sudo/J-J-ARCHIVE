@@ -82,7 +82,6 @@
             display: none;
         }
         
-        /* 로딩 중 깜빡임 방지용 초기 스타일 */
         body { background-color: #050505; color: white; }
     </style>
 </head>
@@ -119,20 +118,57 @@
         // [중요] 앱 마운트 대기 함수 (검은 화면 방지)
         // ---------------------------------------------------------
         function mountApp() {
-            // 외부 라이브러리(Lucide, React)가 로드되었는지 확인
+            // 라이브러리가 로드되었는지 확인 (lucide, React, ReactDOM)
             if (!window.lucide || !window.React || !window.ReactDOM) {
                 console.log("Waiting for libraries...");
                 setTimeout(mountApp, 50); // 50ms 후 다시 시도
                 return;
             }
-            
-            // 라이브러리가 준비되면 실행
             startReactApp();
         }
 
         function startReactApp() {
             const { useState, useEffect, useRef } = React;
-            const { Play, Lock, ChevronRight, ChevronDown, X, User, LogOut, BookOpen, Brain, Briefcase, Heart, Zap, ExternalLink, Shield, AlertTriangle } = window.lucide;
+
+            // ---------------------------------------------------------
+            // [Fix] 아이콘 어댑터: Vanilla Lucide -> React Component 변환
+            // ---------------------------------------------------------
+            const LucideIcon = ({ name, size = 24, color = "currentColor", className = "", ...props }) => {
+                const iconDef = window.lucide.icons[name];
+                if (!iconDef) return null;
+                
+                // lucide.icons[name] 구조: ["svg", {attrs}, [children]]
+                const [tag, attrs, children] = iconDef;
+                
+                return React.createElement(tag, {
+                    ...attrs,
+                    width: size,
+                    height: size,
+                    stroke: color,
+                    className: className,
+                    ...props
+                }, children.map(([childTag, childAttrs], index) => 
+                    React.createElement(childTag, { ...childAttrs, key: index })
+                ));
+            };
+
+            // 필요한 아이콘들을 개별 컴포넌트로 정의
+            const Play = (props) => <LucideIcon name="Play" {...props} />;
+            const Lock = (props) => <LucideIcon name="Lock" {...props} />;
+            const ChevronRight = (props) => <LucideIcon name="ChevronRight" {...props} />;
+            const ChevronDown = (props) => <LucideIcon name="ChevronDown" {...props} />;
+            const X = (props) => <LucideIcon name="X" {...props} />;
+            const User = (props) => <LucideIcon name="User" {...props} />;
+            const LogOut = (props) => <LucideIcon name="LogOut" {...props} />;
+            const BookOpen = (props) => <LucideIcon name="BookOpen" {...props} />;
+            const Brain = (props) => <LucideIcon name="Brain" {...props} />;
+            const Briefcase = (props) => <LucideIcon name="Briefcase" {...props} />;
+            const Heart = (props) => <LucideIcon name="Heart" {...props} />;
+            const Zap = (props) => <LucideIcon name="Zap" {...props} />;
+            const ExternalLink = (props) => <LucideIcon name="ExternalLink" {...props} />;
+            const Shield = (props) => <LucideIcon name="Shield" {...props} />;
+            const AlertTriangle = (props) => <LucideIcon name="AlertTriangle" {...props} />;
+
 
             // ---------------------------------------------------------
             // 데이터 통합 로직
@@ -200,7 +236,7 @@
 
                 const handleSignIn = () => {
                     if (!window.firebaseAuth || !window.firebaseAuth.auth) {
-                        setError("System Error: Firebase not ready. Try Dev Mode.");
+                        setError("System Error: Firebase modules not loaded. Please use Dev Mode.");
                         return;
                     }
 
@@ -221,7 +257,11 @@
                         })
                         .catch((error) => {
                             console.error(error);
-                            setError("Authentication Failed: " + error.message);
+                            let msg = error.message;
+                            if (window.location.protocol === 'file:') {
+                                msg = "로컬 파일(file://)에서는 로그인이 제한될 수 있습니다. 아래 [DEV MODE]를 사용하세요.";
+                            }
+                            setError(msg);
                             setIsAuthenticating(false);
                         });
                 };
@@ -244,7 +284,7 @@
                                 사전에 인가된 계정으로만 접근이 가능합니다.
                             </p>
 
-                            <div className="flex flex-col gap-3">
+                            <div className="flex flex-col gap-4 items-center">
                                 <button 
                                     onClick={handleSignIn}
                                     disabled={isAuthenticating}
@@ -255,11 +295,10 @@
                                     </span>
                                 </button>
                                 
-                                {/* 개발자 우회 버튼 (Firebase 에러 시 표시됨) */}
                                 {onDevBypass && (
                                     <button 
                                         onClick={onDevBypass}
-                                        className="text-[9px] text-gray-700 hover:text-brand-gold uppercase tracking-widest transition-colors"
+                                        className="text-[9px] text-gray-600 hover:text-brand-gold uppercase tracking-widest transition-colors border-b border-transparent hover:border-brand-gold pb-0.5"
                                     >
                                         [DEV MODE] Bypass Authentication
                                     </button>
@@ -267,20 +306,20 @@
                             </div>
 
                             {error && (
-                                <div className="mt-4 p-4 bg-red-950/30 border border-red-900/50 text-red-400 text-[10px] tracking-wide">
+                                <div className="mt-4 p-4 bg-red-950/30 border border-red-900/50 text-red-400 text-[10px] tracking-wide break-keep">
                                     ⚠ {error}
                                 </div>
                             )}
                         </div>
                         <div className="absolute bottom-8 text-gray-800 text-[9px] font-mono">
-                            SECURE CONNECTION • ENCRYPTED • V.2.1.1
+                            SECURE CONNECTION • ENCRYPTED • V.2.1.2
                         </div>
                     </div>
                 );
             };
 
             // ---------------------------------------------------------
-            // 컴포넌트들 (SecureVideoLauncher, SimpleVideoPlayer, CourseDetail, CourseCard)
+            // 컴포넌트: 보안 영상 런처
             // ---------------------------------------------------------
             const SecureVideoLauncher = ({ videoId, title }) => {
                 const thumbnailUrl = getYoutubeThumbnail(videoId);
@@ -447,7 +486,7 @@
 
                 useEffect(() => {
                     let attempts = 0;
-                    const waitForFirebase = () => {
+                    const checkAuth = () => {
                         if (window.firebaseAuth && window.firebaseAuth.auth) {
                             const { auth, onAuthStateChanged } = window.firebaseAuth;
                             onAuthStateChanged(auth, (currentUser) => {
@@ -460,28 +499,27 @@
                             });
                         } else {
                             attempts++;
-                            // 3초 이상 Firebase가 로드되지 않으면 Dev Mode 버튼 활성화 (로컬 테스트용)
-                            if (attempts > 60) {
+                            // 3초 이상 Firebase가 로드되지 않으면 Dev Mode 버튼 활성화
+                            if (attempts > 30) { 
                                 setShowDevBypass(true);
                             }
-                            // 계속 재시도
-                            setTimeout(waitForFirebase, 50);
+                            setTimeout(checkAuth, 100);
                         }
                     };
-                    waitForFirebase();
+                    checkAuth();
                 }, []);
 
                 const handleLogout = () => {
                     if (window.firebaseAuth && window.firebaseAuth.auth) {
                         window.firebaseAuth.signOut(window.firebaseAuth.auth).then(() => setUser(null));
                     } else {
-                        setUser(null); // Dev mode logout
+                        setUser(null);
                     }
                 };
                 
-                // 개발자 우회 접속 (로컬 파일 실행 시 사용)
+                // 개발자 우회 접속
                 const handleDevBypass = () => {
-                    if (confirm("경고: 개발자 모드로 진입합니다. 보안 기능이 비활성화됩니다.")) {
+                    if (confirm("경고: 개발자 모드(DEV MODE)로 진입합니다.\n인증 절차 없이 시스템에 접근합니다.")) {
                         setUser({ email: "choijihoon9988@gmail.com" });
                         setLoading(false);
                     }
@@ -510,10 +548,6 @@
         // 앱 실행 트리거
         // ---------------------------------------------------------
         mountApp();
-    </script>
-    <script>
-        // 아이콘 수동 실행 (백업)
-        setTimeout(() => { if (window.lucide) window.lucide.createIcons(); }, 100);
     </script>
 </body>
 </html>
