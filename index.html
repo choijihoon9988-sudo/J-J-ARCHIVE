@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     
     <title>J&J Archive | Private Library</title>
-    <meta name="description" content="친구의 성장을 돕기 위해 구축한 세상에서 가장 안전하고 프라이빗한 디지털 서재">
+    <meta name="description" content="서로의 성장을 돕기 위해 구축한 세상에서 가장 안전하고 프라이빗한 디지털 서재">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://jnj-archive.web.app/">
     <meta property="og:title" content="J&J Archive | Private Library">
@@ -501,9 +501,40 @@
                     )}
 
                     {/* Footer */}
-                    <footer className="max-w-7xl mx-auto px-4 md:px-8 mt-32 border-t border-toss-grey200 pt-8 flex flex-col md:flex-row justify-between items-center text-toss-grey400 text-xs">
-                        <p>© 2025 J&J Archive. All rights reserved.</p>
-                        <p className="mt-2 md:mt-0">Private & Confidential</p>
+                    <footer className="max-w-7xl mx-auto px-4 md:px-8 mt-32 border-t border-toss-grey200 py-12 animate-fade-in">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                            <div>
+                                <h5 className="font-bold text-toss-grey800 text-sm mb-3">J&J Archive</h5>
+                                <p className="text-toss-grey500 text-xs leading-relaxed">
+                                    친구의 성장을 돕기 위해 구축한<br/>
+                                    세상에서 가장 안전하고 프라이빗한 디지털 서재
+                                </p>
+                            </div>
+                            <div className="flex flex-wrap gap-x-6 gap-y-2 text-xs text-toss-grey600">
+                                <span className="cursor-pointer hover:text-toss-blue transition-colors">서비스 이용약관</span>
+                                <span className="cursor-pointer hover:text-toss-blue font-bold transition-colors">개인정보처리방침</span>
+                                <span className="cursor-pointer hover:text-toss-blue transition-colors">고객센터</span>
+                            </div>
+                        </div>
+
+                        <div className="text-[11px] text-toss-grey400 leading-relaxed font-normal">
+                            <p className="mb-1 flex flex-wrap gap-2">
+                                <span><strong className="text-toss-grey600 font-medium">상호명:</strong> 마지막케팅 & 텐밀리플러스</span>
+                                <span className="hidden sm:inline text-toss-grey300">|</span>
+                                <span><strong className="text-toss-grey600 font-medium">대표자:</strong> 김지후, 최재영</span>
+                            </p>
+                            <p className="mb-1 flex flex-wrap gap-2">
+                                <span>사업자등록번호: 2005-513-0420</span>
+                                <span className="hidden sm:inline text-toss-grey300">|</span>
+                                <span>통신판매업신고: 제 2025-서울강남-00123호</span>
+                            </p>
+                            <p className="mb-4 flex flex-wrap gap-2">
+                                <span>주소: 서울특별시 강남구 테헤란로 (Private Office)</span>
+                                <span className="hidden sm:inline text-toss-grey300">|</span>
+                                <span>이메일: choijihoon9988@gmail.com, jihoo0420@gmail.com</span>
+                            </p>
+                            <p className="opacity-70">© 2025 J&J Archive. All rights reserved.</p>
+                        </div>
                     </footer>
                 </div>
             );
