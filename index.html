@@ -78,6 +78,16 @@
             -ms-user-select: none;
             user-select: none;
         }
+
+        /* Hide scrollbar for Chrome, Safari and Opera */
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+        /* Hide scrollbar for IE, Edge and Firefox */
+        .scrollbar-hide {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
     </style>
 </head>
 <body class="bg-brand-black text-white antialiased overflow-x-hidden selection:bg-brand-gold selection:text-black">
@@ -110,7 +120,7 @@
         // [FIX] 아이콘 컴포넌트 직접 정의 (외부 라이브러리 의존성 제거)
         // ---------------------------------------------------------
         const Icons = {
-            Play: ({size=24, className}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>,
+            Play: ({size=24, className, fill="currentColor"}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill={fill} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>,
             Lock: ({size=24, className}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>,
             X: ({size=24, className}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>,
             LogOut: ({size=24, className}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>,
@@ -223,49 +233,103 @@
         };
 
         // ---------------------------------------------------------
-        // 컴포넌트: 비디오 플레이어 (The Shield Modal)
+        // 컴포넌트: 통합 강의 플레이어 (Lecture Room)
         // ---------------------------------------------------------
-        const VideoPlayer = ({ videoId, title, onClose }) => {
+        const LecturePlayer = ({ course, onClose }) => {
+            // 초기 상태: 첫 번째 챕터의 첫 번째 강의
+            const [currentLecture, setCurrentLecture] = useState(() => {
+                return course.chapters?.[0]?.lectures?.[0] || null;
+            });
+
+            // 스크롤 방지
             useEffect(() => {
                 document.body.style.overflow = 'hidden';
                 return () => document.body.style.overflow = 'unset';
             }, []);
 
-            return (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-md animate-fade-in p-0 md:p-8">
-                    <button 
-                        onClick={onClose}
-                        className="absolute top-6 right-6 text-white/40 hover:text-white transition-colors z-50 p-2 hover:bg-white/10 rounded-full"
-                    >
-                        <Icons.X size={28} />
-                    </button>
+            if (!currentLecture) return null;
 
-                    <div className="w-full max-w-6xl flex flex-col gap-6">
-                        <div className="relative w-full aspect-video bg-black shadow-2xl border border-white/5 overflow-hidden rounded-sm">
-                            <iframe 
-                                className="w-full h-full"
-                                src={`https://www.youtube.com/embed/${videoId}?autoplay=1&controls=1&modestbranding=1&rel=0&showinfo=0&disablekb=1&iv_load_policy=3&fs=1`}
-                                title={title}
-                                frameBorder="0" 
-                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                                allowFullScreen
-                            ></iframe>
-                            <div className="video-shield top-0 left-0 w-full h-[15%] pointer-events-auto"></div>
-                            <div className="video-shield bottom-[50px] right-0 w-[120px] h-[60px] pointer-events-auto"></div>
-                        </div>
+            return (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-md animate-fade-in p-0">
+                   {/* Layout Wrapper */}
+                   <div className="w-full h-full md:h-[90vh] md:w-[90vw] max-w-7xl flex flex-col md:flex-row bg-brand-dark overflow-hidden rounded-sm border border-white/10 shadow-2xl relative">
                         
-                        <div className="hidden md:block px-2 animate-slide-up">
-                            <h2 className="text-2xl font-serif text-white mb-2">{title}</h2>
-                            <div className="flex items-center gap-3 text-brand-gold text-[10px] tracking-[0.2em] uppercase font-bold">
-                                <span className="flex items-center gap-1">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse"></span>
-                                    On Air
-                                </span>
-                                <span className="text-gray-600">|</span>
-                                <span>Restricted Content</span>
+                        {/* Close Button */}
+                        <button 
+                            onClick={onClose}
+                            className="absolute top-4 right-4 z-[60] text-white/50 hover:text-white bg-black/50 hover:bg-black/80 p-2 rounded-full transition-all"
+                        >
+                            <Icons.X size={24} />
+                        </button>
+
+                        {/* Left: Video Player Section */}
+                        <div className="flex-1 bg-black flex flex-col relative group">
+                             {/* Iframe Area */}
+                             <div className="relative w-full h-full flex items-center justify-center bg-black">
+                                <iframe 
+                                    className="w-full h-full aspect-video"
+                                    src={`https://www.youtube.com/embed/${currentLecture.videoId}?autoplay=1&modestbranding=1&rel=0&showinfo=0`}
+                                    title={currentLecture.title}
+                                    frameBorder="0" 
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                    allowFullScreen
+                                ></iframe>
+                                {/* Video Shield (Optional protection) */}
+                                <div className="video-shield top-0 left-0 w-full h-[10%]"></div>
+                             </div>
+                             
+                             {/* Current Title Bar (Mobile/Overlay) */}
+                             <div className="hidden md:block absolute bottom-0 left-0 w-full p-6 bg-gradient-to-t from-black via-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+                                <h2 className="text-xl font-serif text-white">{currentLecture.title}</h2>
+                             </div>
+                        </div>
+
+                        {/* Right: Curriculum Sidebar */}
+                        <div className="w-full h-[40%] md:h-full md:w-[400px] bg-brand-surface border-t md:border-t-0 md:border-l border-white/5 flex flex-col">
+                            {/* Sidebar Header */}
+                            <div className="p-4 md:p-6 border-b border-white/5 bg-brand-black/50 shrink-0">
+                                <span className="text-[10px] text-brand-gold font-bold tracking-widest uppercase mb-1 md:mb-2 block">Now Playing</span>
+                                <h3 className="text-base md:text-lg font-serif text-white leading-tight truncate">{course.title}</h3>
+                                <p className="hidden md:block text-xs text-gray-500 mt-2 line-clamp-2">{course.description}</p>
+                            </div>
+
+                            {/* Chapter List (Scrollable) */}
+                            <div className="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-hide">
+                                {course.chapters.map((chapter, cIndex) => (
+                                    <div key={cIndex} className="animate-slide-up" style={{animationDelay: `${cIndex * 0.1}s`}}>
+                                        <h4 className="text-[10px] md:text-[11px] text-gray-400 font-bold uppercase tracking-wider mb-2 md:mb-3 px-2 flex items-center gap-2">
+                                            <span className="w-1 h-1 rounded-full bg-brand-gold"></span>
+                                            {chapter.title}
+                                        </h4>
+                                        <div className="space-y-1">
+                                            {chapter.lectures.map((lecture, lIndex) => {
+                                                const isActive = currentLecture.videoId === lecture.videoId && currentLecture.title === lecture.title; 
+                                                return (
+                                                    <button
+                                                        key={lIndex}
+                                                        onClick={() => setCurrentLecture(lecture)}
+                                                        className={`w-full text-left p-2 md:p-3 rounded-sm text-xs transition-all duration-200 flex items-start gap-3 group
+                                                            ${isActive 
+                                                                ? 'bg-brand-gold/10 text-brand-gold border border-brand-gold/20' 
+                                                                : 'text-gray-400 hover:bg-white/5 hover:text-gray-200 border border-transparent'
+                                                            }`}
+                                                    >
+                                                        <div className={`mt-0.5 ${isActive ? 'text-brand-gold' : 'text-gray-600 group-hover:text-gray-400'}`}>
+                                                            {isActive ? <Icons.Play size={12} fill="currentColor"/> : <div className="w-3 h-3 rounded-full border border-current opacity-40"></div>}
+                                                        </div>
+                                                        <div className="flex-1">
+                                                            <span className="block leading-relaxed line-clamp-2">{lecture.title}</span>
+                                                            <span className="text-[9px] opacity-50 mt-1 block font-mono">{lecture.duration}</span>
+                                                        </div>
+                                                    </button>
+                                                )
+                                            })}
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
                         </div>
-                    </div>
+                   </div>
                 </div>
             );
         };
@@ -406,9 +470,8 @@
                     </main>
 
                     {selectedCourse && (
-                        <VideoPlayer 
-                            videoId={selectedCourse.chapters?.[0]?.lectures?.[0]?.videoId || "VIDEO_ID_HERE"} 
-                            title={selectedCourse.title}
+                        <LecturePlayer 
+                            course={selectedCourse}
                             onClose={() => setSelectedCourse(null)} 
                         />
                     )}
