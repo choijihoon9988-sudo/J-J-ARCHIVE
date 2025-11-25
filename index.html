@@ -152,6 +152,7 @@
             Check: ({size=20, className}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="20 6 9 17 4 12"></polyline></svg>,
             CheckCircle: ({size=20, className}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>,
             ChevronRight: ({size=20, className}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="9 18 15 12 9 6"></polyline></svg>,
+            ChevronLeft: ({size=20, className}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="15 18 9 12 15 6"></polyline></svg>,
             ChevronDown: ({size=20, className}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="6 9 12 15 18 9"></polyline></svg>,
             ExternalLink: ({size=20, className}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>,
             Search: ({size=20, className}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>,
@@ -568,11 +569,8 @@
                     filter: (l) => /원리|이론|본질|마인드|개념|이해|이유|구조|분석/.test(l.title)
                 },
                 { 
-                    label: '친구에게 공유', 
-                    filter: (l) => {
-                        const mins = parseDuration(l.duration);
-                        return mins >= 5 && mins <= 15 && /비밀|공식|충격|사실|Best|Top/.test(l.title);
-                    } 
+                    label: '돈이 벌리는 지식', 
+                    filter: (l) => /돈|수익|매출|사업|창업|부자|머니|Income|Money|Sale/.test(l.title)
                 }
             ];
 
@@ -785,7 +783,8 @@
                 <div className="max-w-7xl mx-auto px-4 md:px-8 pb-12 h-[calc(100vh-100px)] flex flex-col md:flex-row gap-6 animate-fade-in">
                     
                     {/* Left Sidebar: Tree View */}
-                    <div className="w-full md:w-80 bg-white rounded-2xl shadow-card flex flex-col overflow-hidden shrink-0 h-1/2 md:h-full border border-toss-grey200">
+                    {/* Mobile: Hidden if node selected. Desktop: Always visible */}
+                    <div className={`w-full md:w-80 bg-white rounded-2xl shadow-card flex-col overflow-hidden shrink-0 h-full border border-toss-grey200 ${selectedNode ? 'hidden md:flex' : 'flex'}`}>
                         <div className="p-4 border-b border-toss-grey100 bg-toss-grey100/50">
                             <div className="flex items-center gap-2 text-toss-grey800 font-bold">
                                 <Icons.Book size={18} />
@@ -849,34 +848,45 @@
                     </div>
 
                     {/* Right Main: Content View */}
-                    <div className="flex-1 bg-white rounded-2xl shadow-card overflow-hidden flex flex-col h-1/2 md:h-full border border-toss-grey200">
+                    {/* Mobile: Hidden if no node selected. Desktop: Always visible */}
+                    <div className={`flex-1 bg-white rounded-2xl shadow-card overflow-hidden flex-col h-full border border-toss-grey200 ${!selectedNode ? 'hidden md:flex' : 'flex'}`}>
                         {!selectedNode ? (
                             <div className="flex-1 flex flex-col items-center justify-center text-toss-grey400 p-8 text-center">
                                 <div className="w-20 h-20 bg-toss-grey100 rounded-full flex items-center justify-center mb-4">
                                     <Icons.Book size={32} className="opacity-50"/>
                                 </div>
                                 <h3 className="text-lg font-bold text-toss-grey600 mb-2">지식을 탐험하세요</h3>
-                                <p className="text-sm max-w-sm">왼쪽 목록에서 코스, 챕터, 혹은 강의를 선택하여 내용을 확인해보세요.</p>
+                                <p className="text-sm max-w-sm">목록에서 코스, 챕터, 혹은 강의를 선택하여 내용을 확인해보세요.</p>
                             </div>
                         ) : (
                             <div className="flex flex-col h-full animate-fade-in">
                                 {/* Header */}
-                                <div className="p-6 border-b border-toss-grey100">
-                                    <div className="flex items-center gap-2 text-xs font-bold text-toss-blue uppercase tracking-wide mb-2">
-                                        {selectedNode.type === 'lecture' && 'LECTURE NOTE'}
-                                        {selectedNode.type === 'chapter' && 'CHAPTER OVERVIEW'}
-                                        {selectedNode.type === 'course' && 'COURSE INTRO'}
-                                    </div>
-                                    <h2 className="text-2xl font-bold text-toss-black leading-tight">
-                                        {selectedNode.data.title}
-                                    </h2>
-                                    {selectedNode.type === 'lecture' && (
-                                        <div className="flex items-center gap-2 mt-2 text-sm text-toss-grey500">
-                                            <span>{selectedNode.parentCourse?.instructor}</span>
-                                            <span>•</span>
-                                            <span>{selectedNode.data.duration}</span>
+                                <div className="p-6 border-b border-toss-grey100 flex items-start gap-4">
+                                    {/* Mobile Back Button */}
+                                    <button 
+                                        onClick={() => setSelectedNode(null)}
+                                        className="md:hidden mt-1 p-1 -ml-2 rounded-full hover:bg-toss-grey100 text-toss-grey600"
+                                    >
+                                        <Icons.ChevronLeft size={24} />
+                                    </button>
+
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 text-xs font-bold text-toss-blue uppercase tracking-wide mb-2">
+                                            {selectedNode.type === 'lecture' && 'LECTURE NOTE'}
+                                            {selectedNode.type === 'chapter' && 'CHAPTER OVERVIEW'}
+                                            {selectedNode.type === 'course' && 'COURSE INTRO'}
                                         </div>
-                                    )}
+                                        <h2 className="text-xl md:text-2xl font-bold text-toss-black leading-tight line-clamp-2">
+                                            {selectedNode.data.title}
+                                        </h2>
+                                        {selectedNode.type === 'lecture' && (
+                                            <div className="flex items-center gap-2 mt-2 text-sm text-toss-grey500">
+                                                <span>{selectedNode.parentCourse?.instructor}</span>
+                                                <span>•</span>
+                                                <span>{selectedNode.data.duration}</span>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
 
                                 {/* Body */}
