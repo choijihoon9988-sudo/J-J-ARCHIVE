@@ -4,11 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     
-    <title>J&J Archive | Private Library</title>
+    <title>J&J Archive</title>
     <meta name="description" content="서로의 성장을 돕기 위해 구축한 세상에서 가장 안전하고 프라이빗한 디지털 서재">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://jnj-archive.web.app/">
-    <meta property="og:title" content="J&J Archive | Private Library">
+    <meta property="og:title" content="J&J Archive">
     <meta property="og:description" content="서로의 성장을 위한 프라이빗 지식 플랫폼. 엄선된 강의와 인사이트를 만나보세요.">
     <meta property="og:image" content="./AI.png">
     <meta property="og:locale" content="ko_KR">
@@ -17,8 +17,8 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2220%22 fill=%22%233182F6%22/><text x=%2250%22 y=%2250%22 dominant-baseline=%22central%22 text-anchor=%22middle%22 font-family=%22sans-serif%22 font-weight=%22bold%22 font-size=%2240%22 fill=%22white%22>J&J</text></svg>">
-
+    <link rel="icon" href="./파비콘 이미지.png" type="image/png">
+    <link rel="apple-touch-icon" href="./파비콘 이미지.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -853,6 +853,141 @@
             );
         };
 
+        // --- Component: KnowledgeSlotMachine (Moved here for proper scope) ---
+        const KnowledgeSlotMachine = ({ courses, onRecommend, onClose }) => {
+            const [isSpinning, setIsSpinning] = useState(false);
+            const [slots, setSlots] = useState({ category: '???', action: '???' });
+            const [recommendation, setRecommendation] = useState(null);
+
+            const categories = ['BUSINESS', 'MINDSET', 'PSYCHOLOGY', 'TECH'];
+
+            const parseDuration = (durationStr) => {
+                if (!durationStr) return 0;
+                const parts = durationStr.split(':').map(Number);
+                if (parts.length === 2) return parts[0]; 
+                if (parts.length === 3) return parts[0] * 60 + parts[1];
+                return 0;
+            };
+
+            const actions = [
+                { label: '가볍게 스낵 지식', filter: (l) => parseDuration(l.duration) <= 10 },
+                { label: '진득하게 딥다이브', filter: (l) => parseDuration(l.duration) >= 20 },
+                { label: '실전 노하우 흡수', filter: (l) => /법|방법|팁|가이드|기술|How|만들기|사용법/.test(l.title)},
+                { label: '본질 꿰뚫기', filter: (l) => /원리|이론|본질|마인드|개념|이해|이유|구조|분석/.test(l.title)},
+                { label: '돈이 벌리는 지식', filter: (l) => /돈|수익|매출|사업|창업|부자|머니|Income|Money|Sale/.test(l.title)}
+            ];
+
+            const handleSpin = () => {
+                if (isSpinning) return;
+                setIsSpinning(true);
+                setRecommendation(null);
+
+                let interval = setInterval(() => {
+                    setSlots({
+                        category: categories[Math.floor(Math.random() * categories.length)],
+                        action: actions[Math.floor(Math.random() * actions.length)].label
+                    });
+                }, 80);
+
+                setTimeout(() => {
+                    clearInterval(interval);
+                    const finalCategory = categories[Math.floor(Math.random() * categories.length)];
+                    const finalActionObj = actions[Math.floor(Math.random() * actions.length)];
+                    
+                    setSlots({ category: finalCategory, action: finalActionObj.label });
+                    
+                    const catCourses = courses.filter(c => c.category && c.category.toUpperCase() === finalCategory);
+                    
+                    if (catCourses.length > 0) {
+                        let allLectures = catCourses.flatMap(course => 
+                            course.chapters.flatMap(ch => 
+                                ch.lectures.map(l => ({
+                                    ...l, 
+                                    courseId: course.id, 
+                                    courseTitle: course.title,
+                                    courseImage: course.image,
+                                    courseObj: course
+                                }))
+                            )
+                        );
+                        let filteredLectures = allLectures.filter(finalActionObj.filter);
+                        if (filteredLectures.length === 0) filteredLectures = allLectures; 
+                        
+                        if (filteredLectures.length > 0) {
+                            const randomLecture = filteredLectures[Math.floor(Math.random() * filteredLectures.length)];
+                            setRecommendation(randomLecture);
+                        } else {
+                            setRecommendation(null);
+                        }
+                    } else {
+                         setRecommendation(null);
+                    }
+                    setIsSpinning(false);
+                }, 2000);
+            };
+
+            return (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+                    <div className="w-full max-w-2xl bg-gradient-to-br from-toss-grey900 to-toss-black rounded-[32px] p-6 md:p-10 shadow-floating text-white relative overflow-hidden animate-slide-up">
+                        <button onClick={onClose} className="absolute top-4 right-4 p-2 text-white/50 hover:text-white transition-colors z-20">
+                            <Icons.X size={24} />
+                        </button>
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-toss-blue/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+                        <div className="absolute bottom-0 left-0 w-48 h-48 bg-purple-500/20 rounded-full blur-3xl translate-y-1/3 -translate-x-1/3"></div>
+
+                        <div className="relative z-10 flex flex-col items-center gap-8">
+                            <div className="text-center">
+                                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur border border-white/10 text-[11px] font-bold text-yellow-300 mb-4">
+                                    <Icons.Zap size={14} className="fill-current" />
+                                    <span>TODAY'S KNOWLEDGE PICK</span>
+                                </div>
+                                <h3 className="text-2xl md:text-3xl font-bold leading-tight mb-2">오늘은 무엇을 공부할까요?</h3>
+                                <p className="text-toss-grey400 text-sm leading-relaxed">당신의 상황에 딱 맞는 최적의 지식을 찾아드립니다.</p>
+                            </div>
+
+                            <div className="flex gap-2 md:gap-4 bg-white/5 p-4 rounded-2xl border border-white/10 backdrop-blur-sm w-full justify-center">
+                                <div className="bg-toss-grey900 border border-toss-grey700 rounded-xl w-32 md:w-40 h-24 flex items-center justify-center text-center p-2 relative overflow-hidden">
+                                     <span className={`font-bold text-lg md:text-xl transition-all ${isSpinning ? 'blur-[1px]' : 'text-blue-400'}`}>{slots.category}</span>
+                                </div>
+                                <div className="flex items-center text-toss-grey500 font-bold">X</div>
+                                <div className="bg-toss-grey900 border border-toss-grey700 rounded-xl w-32 md:w-40 h-24 flex items-center justify-center text-center p-2 relative overflow-hidden">
+                                    <span className={`font-bold text-sm md:text-base transition-all ${isSpinning ? 'blur-[1px]' : 'text-purple-400'}`}>{slots.action}</span>
+                                </div>
+                            </div>
+
+                            <div className="flex flex-col items-center justify-center w-full max-w-sm">
+                                {!recommendation ? (
+                                    <div className="w-full flex flex-col gap-3">
+                                        <button 
+                                            onClick={handleSpin}
+                                            disabled={isSpinning}
+                                            className={`group relative px-8 py-4 bg-toss-blue hover:bg-blue-500 text-white rounded-2xl font-bold shadow-lg shadow-blue-500/40 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed w-full flex items-center justify-center gap-2 overflow-hidden`}
+                                        >
+                                            <Icons.RefreshCw size={20} className={isSpinning ? 'animate-spin' : ''} />
+                                            <span>{isSpinning ? 'Analyzing...' : 'SPIN !'}</span>
+                                        </button>
+                                        <button onClick={onClose} className="text-sm text-toss-grey500 hover:text-white transition-colors py-2">나중에 열어보기</button>
+                                    </div>
+                                ) : (
+                                    <div className="animate-fade-in w-full bg-white rounded-xl p-4 text-toss-black shadow-lg">
+                                        <div className="text-[10px] font-bold text-toss-grey500 uppercase mb-1 line-clamp-1">{slots.action}</div>
+                                        <div className="font-bold text-sm leading-tight mb-3 line-clamp-2">{recommendation.title}</div>
+                                        <button 
+                                            onClick={() => onRecommend(recommendation)}
+                                            className="w-full py-2 bg-toss-blue text-white rounded-lg text-xs font-bold hover:bg-blue-600 transition-colors flex items-center justify-center gap-1"
+                                        >
+                                            <Icons.Play size={12} fill="currentColor"/> 바로 재생
+                                        </button>
+                                        <button onClick={() => setRecommendation(null)} className="mt-2 text-[10px] text-toss-grey500 underline w-full text-center">다시 돌리기</button>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
 
         // --- Component: Dashboard ---
         const Dashboard = ({ user, onLogout }) => {
@@ -861,7 +996,7 @@
             const [recommendedLecture, setRecommendedLecture] = useState(null);
             const [currentTab, setCurrentTab] = useState('HOME');
             
-            const [showSlotMachine, setShowSlotMachine] = useState(true);
+            const [showSlotMachine, setShowSlotMachine] = useState(false);
             const [searchQuery, setSearchQuery] = useState('');
             const [showCaptureModal, setShowCaptureModal] = useState(false);
             
@@ -875,6 +1010,47 @@
             } = useCapturedChannels(user?.uid);
 
             const [userNotes, setUserNotes] = useState({}); 
+
+            // [2. 모바일 뒤로가기 기능] History Management for Mobile Back Button
+            useEffect(() => {
+                // Initialize an entry in history when the dashboard first loads. 
+                // This is crucial to give the mobile back button an in-app state to pop to.
+                // We use pushState to ensure the back button can pop to this 'dashboard' state.
+                if (window.history.state?.view !== 'dashboard') {
+                     window.history.pushState({ view: 'dashboard' }, ''); 
+                }
+
+                const handlePopState = (event) => {
+                    // This event fires when the user hits the browser's back button.
+                    
+                    if (selectedCourse) {
+                        // If LecturePlayer is open, close it.
+                        setSelectedCourse(null);
+                        setRecommendedLecture(null);
+                        // The history has already gone back one step (from player view to previous)
+                    } else if (showCaptureModal) {
+                        // If CaptureModal is open, close it.
+                        setShowCaptureModal(false);
+                        // The history has already gone back one step
+                    } else if (showSlotMachine) {
+                        // If SlotMachine is open, close it.
+                        setShowSlotMachine(false);
+                        // The history has already gone back one step
+                    } else if (currentTab !== 'HOME') {
+                        // If on a sub-tab (GRIMOIRE or ESSENCE), go back to HOME
+                        setCurrentTab('HOME');
+                        // No pushState needed here, let the previous state handle the next back action.
+                    } else {
+                         // Nothing is open, we're at the base of the app state. Let the browser handle the history.
+                         // (e.g., exit the app or go to the true previous external page)
+                    }
+                };
+
+                window.addEventListener('popstate', handlePopState);
+
+                return () => window.removeEventListener('popstate', handlePopState);
+            }, [selectedCourse, showCaptureModal, showSlotMachine, currentTab]);
+
 
             useEffect(() => {
                 if (!user?.uid) return;
@@ -961,160 +1137,41 @@
             const getCategoryInfo = (id) => ESSENCE_DATA.categories.find(c => c.id === id);
 
 
+            const handleCourseClick = (c) => { 
+                setSelectedCourse(c); 
+                setRecommendedLecture(null); 
+                window.history.pushState({ view: 'player', courseId: c.id }, '', `#player/${c.id}`); // Push state for back button
+            };
+
             const handleRecommendation = (lecture) => {
                 setShowSlotMachine(false); 
                 setSelectedCourse(lecture.courseObj);
                 setRecommendedLecture(lecture); 
+                window.history.pushState({ view: 'player', courseId: lecture.courseObj.id }, '', `#player/${lecture.courseObj.id}`); // Push state for back button
             };
 
             const handlePlayFromGrimoire = (lecture, course) => {
                 setSelectedCourse(course);
                 setRecommendedLecture(lecture);
+                window.history.pushState({ view: 'player', courseId: course.id }, '', `#player/${course.id}`); // Push state for back button
             };
             
             const handlePlayFromSearch = (result) => {
                  setSelectedCourse(result.course);
                  setRecommendedLecture(result.lecture);
+                 window.history.pushState({ view: 'player', courseId: result.course.id }, '', `#player/${result.course.id}`); // Push state for back button
             };
 
-            // KnowledgeSlotMachine Component (Moved inside Dashboard for context access if needed, but keeping separate for clean code as before)
-            // Re-declaring it here or ensuring it's available in scope. 
-            // Since we are in a single file script, it should be defined above Dashboard.
-            // (It was defined above in previous fullContent, assuming it's still there)
-
-            const KnowledgeSlotMachine = ({ courses, onRecommend, onClose }) => {
-                const [isSpinning, setIsSpinning] = useState(false);
-                const [slots, setSlots] = useState({ category: '???', action: '???' });
-                const [recommendation, setRecommendation] = useState(null);
-    
-                const categories = ['BUSINESS', 'MINDSET', 'PSYCHOLOGY', 'TECH'];
-    
-                const parseDuration = (durationStr) => {
-                    if (!durationStr) return 0;
-                    const parts = durationStr.split(':').map(Number);
-                    if (parts.length === 2) return parts[0]; 
-                    if (parts.length === 3) return parts[0] * 60 + parts[1];
-                    return 0;
-                };
-    
-                const actions = [
-                    { label: '가볍게 스낵 지식', filter: (l) => parseDuration(l.duration) <= 10 },
-                    { label: '진득하게 딥다이브', filter: (l) => parseDuration(l.duration) >= 20 },
-                    { label: '실전 노하우 흡수', filter: (l) => /법|방법|팁|가이드|기술|How|만들기|사용법/.test(l.title)},
-                    { label: '본질 꿰뚫기', filter: (l) => /원리|이론|본질|마인드|개념|이해|이유|구조|분석/.test(l.title)},
-                    { label: '돈이 벌리는 지식', filter: (l) => /돈|수익|매출|사업|창업|부자|머니|Income|Money|Sale/.test(l.title)}
-                ];
-    
-                const handleSpin = () => {
-                    if (isSpinning) return;
-                    setIsSpinning(true);
-                    setRecommendation(null);
-    
-                    let interval = setInterval(() => {
-                        setSlots({
-                            category: categories[Math.floor(Math.random() * categories.length)],
-                            action: actions[Math.floor(Math.random() * actions.length)].label
-                        });
-                    }, 80);
-    
-                    setTimeout(() => {
-                        clearInterval(interval);
-                        const finalCategory = categories[Math.floor(Math.random() * categories.length)];
-                        const finalActionObj = actions[Math.floor(Math.random() * actions.length)];
-                        
-                        setSlots({ category: finalCategory, action: finalActionObj.label });
-                        
-                        const catCourses = courses.filter(c => c.category && c.category.toUpperCase() === finalCategory);
-                        
-                        if (catCourses.length > 0) {
-                            let allLectures = catCourses.flatMap(course => 
-                                course.chapters.flatMap(ch => 
-                                    ch.lectures.map(l => ({
-                                        ...l, 
-                                        courseId: course.id, 
-                                        courseTitle: course.title,
-                                        courseImage: course.image,
-                                        courseObj: course
-                                    }))
-                                )
-                            );
-                            let filteredLectures = allLectures.filter(finalActionObj.filter);
-                            if (filteredLectures.length === 0) filteredLectures = allLectures; 
-                            
-                            if (filteredLectures.length > 0) {
-                                const randomLecture = filteredLectures[Math.floor(Math.random() * filteredLectures.length)];
-                                setRecommendation(randomLecture);
-                            } else {
-                                setRecommendation(null);
-                            }
-                        } else {
-                             setRecommendation(null);
-                        }
-                        setIsSpinning(false);
-                    }, 2000);
-                };
-    
-                return (
-                    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-                        <div className="w-full max-w-2xl bg-gradient-to-br from-toss-grey900 to-toss-black rounded-[32px] p-6 md:p-10 shadow-floating text-white relative overflow-hidden animate-slide-up">
-                            <button onClick={onClose} className="absolute top-4 right-4 p-2 text-white/50 hover:text-white transition-colors z-20">
-                                <Icons.X size={24} />
-                            </button>
-                            <div className="absolute top-0 right-0 w-64 h-64 bg-toss-blue/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-                            <div className="absolute bottom-0 left-0 w-48 h-48 bg-purple-500/20 rounded-full blur-3xl translate-y-1/3 -translate-x-1/3"></div>
-    
-                            <div className="relative z-10 flex flex-col items-center gap-8">
-                                <div className="text-center">
-                                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur border border-white/10 text-[11px] font-bold text-yellow-300 mb-4">
-                                        <Icons.Zap size={14} className="fill-current" />
-                                        <span>TODAY'S KNOWLEDGE PICK</span>
-                                    </div>
-                                    <h3 className="text-2xl md:text-3xl font-bold leading-tight mb-2">오늘은 무엇을 공부할까요?</h3>
-                                    <p className="text-toss-grey400 text-sm leading-relaxed">당신의 상황에 딱 맞는 최적의 지식을 찾아드립니다.</p>
-                                </div>
-    
-                                <div className="flex gap-2 md:gap-4 bg-white/5 p-4 rounded-2xl border border-white/10 backdrop-blur-sm w-full justify-center">
-                                    <div className="bg-toss-grey900 border border-toss-grey700 rounded-xl w-32 md:w-40 h-24 flex items-center justify-center text-center p-2 relative overflow-hidden">
-                                         <span className={`font-bold text-lg md:text-xl transition-all ${isSpinning ? 'blur-[1px]' : 'text-blue-400'}`}>{slots.category}</span>
-                                    </div>
-                                    <div className="flex items-center text-toss-grey500 font-bold">X</div>
-                                    <div className="bg-toss-grey900 border border-toss-grey700 rounded-xl w-32 md:w-40 h-24 flex items-center justify-center text-center p-2 relative overflow-hidden">
-                                        <span className={`font-bold text-sm md:text-base transition-all ${isSpinning ? 'blur-[1px]' : 'text-purple-400'}`}>{slots.action}</span>
-                                    </div>
-                                </div>
-    
-                                <div className="flex flex-col items-center justify-center w-full max-w-sm">
-                                    {!recommendation ? (
-                                        <div className="w-full flex flex-col gap-3">
-                                            <button 
-                                                onClick={handleSpin}
-                                                disabled={isSpinning}
-                                                className={`group relative px-8 py-4 bg-toss-blue hover:bg-blue-500 text-white rounded-2xl font-bold shadow-lg shadow-blue-500/40 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed w-full flex items-center justify-center gap-2 overflow-hidden`}
-                                            >
-                                                <Icons.RefreshCw size={20} className={isSpinning ? 'animate-spin' : ''} />
-                                                <span>{isSpinning ? 'Analyzing...' : 'SPIN !'}</span>
-                                            </button>
-                                            <button onClick={onClose} className="text-sm text-toss-grey500 hover:text-white transition-colors py-2">나중에 열어보기</button>
-                                        </div>
-                                    ) : (
-                                        <div className="animate-fade-in w-full bg-white rounded-xl p-4 text-toss-black shadow-lg">
-                                            <div className="text-[10px] font-bold text-toss-grey500 uppercase mb-1 line-clamp-1">{slots.action}</div>
-                                            <div className="font-bold text-sm leading-tight mb-3 line-clamp-2">{recommendation.title}</div>
-                                            <button 
-                                                onClick={() => onRecommend(recommendation)}
-                                                className="w-full py-2 bg-toss-blue text-white rounded-lg text-xs font-bold hover:bg-blue-600 transition-colors flex items-center justify-center gap-1"
-                                            >
-                                                <Icons.Play size={12} fill="currentColor"/> 바로 재생
-                                            </button>
-                                            <button onClick={() => setRecommendation(null)} className="mt-2 text-[10px] text-toss-grey500 underline w-full text-center">다시 돌리기</button>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                );
+            const handleOpenCaptureModal = () => {
+                setShowCaptureModal(true); 
+                window.history.pushState({ view: 'capture' }, '', '#capture'); // Push state for back button
             };
+
+            const handleOpenSlotMachine = () => {
+                setShowSlotMachine(true);
+                window.history.pushState({ view: 'slot' }, '', '#slot'); // Push state for back button
+            };
+
 
             const MyLibrary = ({ courses, notes, onSaveNote, onPlayLecture }) => {
                 const [selectedNode, setSelectedNode] = useState(null); 
@@ -1317,13 +1374,13 @@
                 <div className="min-h-screen pb-20 bg-toss-bg relative">
                     
                     {currentTab === 'HOME' && !showSlotMachine && (
-                        <button onClick={() => setShowSlotMachine(true)} className="fixed bottom-24 right-6 z-40 w-14 h-14 bg-toss-black text-white rounded-full shadow-floating flex items-center justify-center hover:scale-110 transition-transform duration-300 group" title="오늘은 무엇을 공부할까요?">
+                        <button onClick={handleOpenSlotMachine} className="fixed bottom-24 right-6 z-40 w-14 h-14 bg-toss-black text-white rounded-full shadow-floating flex items-center justify-center hover:scale-110 transition-transform duration-300 group" title="오늘은 무엇을 공부할까요?">
                             <Icons.Zap size={24} className="group-hover:text-yellow-300 transition-colors" />
                         </button>
                     )}
 
                     {currentTab === 'ESSENCE' && (
-                        <button onClick={() => setShowCaptureModal(true)} className="fixed bottom-6 right-6 z-50 w-14 h-14 bg-toss-blue text-white rounded-full shadow-floating flex items-center justify-center hover:scale-110 transition-transform duration-300 group md:bottom-6" title="새 채널 캡쳐하기">
+                        <button onClick={handleOpenCaptureModal} className="fixed bottom-6 right-6 z-50 w-14 h-14 bg-toss-blue text-white rounded-full shadow-floating flex items-center justify-center hover:scale-110 transition-transform duration-300 group md:bottom-6" title="새 채널 캡쳐하기">
                             <Icons.Plus size={24} className="group-hover:rotate-90 transition-transform duration-300" />
                             {capturedChannels.length > 0 && <span className="absolute -top-1 -right-1 w-5 h-5 bg-yellow-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white">{capturedChannels.length}</span>}
                         </button>
@@ -1396,7 +1453,7 @@
                                         </div>
                                         <main className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                                             {filteredCourses.map(course => (
-                                                <CourseCard key={course.id} course={course} notes={userNotes} onClick={(c) => { setSelectedCourse(c); setRecommendedLecture(null); }} />
+                                                <CourseCard key={course.id} course={course} notes={userNotes} onClick={handleCourseClick} />
                                             ))}
                                         </main>
                                     </div>
@@ -1409,7 +1466,7 @@
                         <div className="pt-8"><EssenceView capturedChannelsLoading={capturedChannelsLoading} /></div>
                     )}
 
-                    {selectedCourse && <LecturePlayer course={selectedCourse} initialLecture={recommendedLecture} notes={userNotes} onSaveNote={handleSaveNote} onClose={() => { setSelectedCourse(null); setRecommendedLecture(null); }} />}
+                    {selectedCourse && <LecturePlayer course={selectedCourse} initialLecture={recommendedLecture} notes={userNotes} onSaveNote={handleSaveNote} onClose={() => { setSelectedCourse(null); setRecommendedLecture(null); window.history.back(); }} />}
                     
                     {showCaptureModal && (
                         <CaptureModal
@@ -1417,7 +1474,7 @@
                             onSave={handleSaveCapturedChannel}
                             channels={capturedChannels} 
                             getCategoryInfo={getCategoryInfo}
-                            onClose={() => setShowCaptureModal(false)}
+                            onClose={() => { setShowCaptureModal(false); window.history.back(); }}
                             onRemove={handleRemoveCapturedChannel}
                             onUpdate={handleUpdateCapturedChannel}
                         />
