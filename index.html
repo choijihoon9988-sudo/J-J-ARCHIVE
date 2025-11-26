@@ -34,7 +34,8 @@
     <script src="./insta_data.js"></script>
     <script src="./leeseop_data.js"></script>
     <script src="./startup_data.js"></script>
-    <script src="./essence_data.js"></script> <script>
+    <script src="./essence_data.js"></script>
+    <script>
         tailwind.config = {
             theme: {
                 extend: {
@@ -124,7 +125,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
         import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
         // Firebase Realtime Database imports
-        import { getDatabase, ref, push, onValue, set } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
+        import { getDatabase, ref, push, onValue, set, remove, update } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyAxay6-q869MxmJopDtogmT6A4vfXWtlEg",
@@ -141,7 +142,7 @@
         const db = getDatabase(app);
 
         window.firebaseAuth = { auth, provider, signInWithPopup, signOut, onAuthStateChanged };
-        window.firebaseDB = { db, ref, push, onValue, set };
+        window.firebaseDB = { db, ref, push, onValue, set, remove, update };
     </script>
 
     <script type="text/babel">
@@ -172,6 +173,7 @@
             Filter: ({size=20, className}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>,
             Plus: ({size=20, className}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>,
             Database: ({size=20, className}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>,
+            Trash2: ({size=20, className}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>,
         };
 
         // --- Config & Data ---
@@ -203,8 +205,6 @@
         // --- Utils ---
         
         // [FIX] Firebase Key Sanitizer
-        // Firebase 키에는 '.', '#', '$', '[', ']', '/' 등의 문자를 포함할 수 없습니다.
-        // YouTube URL 등을 키로 사용할 때 반드시 이 함수를 통해 변환해야 합니다.
         const sanitizeKey = (key) => {
             if (!key) return 'unknown';
             return key.replace(/[.#$/[\]]/g, '_');
@@ -217,7 +217,6 @@
             course.chapters.forEach(chapter => {
                 chapter.lectures.forEach(lecture => {
                     totalLectures++;
-                    // [FIX] Check using sanitized key
                     const key = sanitizeKey(lecture.videoId);
                     if (notes[key] && notes[key].trim().length > 0) {
                         writtenNotes++;
@@ -249,7 +248,6 @@
                     if (window.firebaseDB) {
                         clearInterval(checkFirebase);
                         const { db, ref, onValue } = window.firebaseDB;
-                        // [FIX] Sanitized User ID for path
                         const safeUid = sanitizeKey(userId);
                         const channelsRef = ref(db, `captured_channels/${safeUid}`);
                         
@@ -296,7 +294,31 @@
                  });
             };
 
-            return { channels, loading, saveChannel };
+            const removeChannel = (channelId) => {
+                if (!userId || !window.firebaseDB) return;
+                const { db, ref, remove } = window.firebaseDB;
+                const safeUid = sanitizeKey(userId);
+                // Prompt 생략하고 바로 삭제 혹은 UI에서 처리
+                if(window.confirm('정말 삭제하시겠습니까?')) {
+                    const channelRef = ref(db, `captured_channels/${safeUid}/${channelId}`);
+                    remove(channelRef).catch(err => alert("삭제 실패: " + err.message));
+                }
+            };
+
+            const updateChannel = (channelId, newUrl, newCategory) => {
+                if (!userId || !window.firebaseDB) return;
+                const { db, ref, update } = window.firebaseDB;
+                const safeUid = sanitizeKey(userId);
+                const channelRef = ref(db, `captured_channels/${safeUid}/${channelId}`);
+                update(channelRef, {
+                    url: newUrl,
+                    category: newCategory
+                }).then(() => {
+                    // 성공 알림 생략 (반응형으로 즉시 반영됨)
+                }).catch(err => alert("수정 실패: " + err.message));
+            };
+
+            return { channels, loading, saveChannel, removeChannel, updateChannel };
         };
 
 
@@ -391,15 +413,12 @@
                 return () => document.body.style.overflow = 'unset';
             }, []);
 
-            // [FIX] Note Loading Logic
-            // notes 전체가 변경될 때마다 로딩하면, 타이핑 중인 글이 DB 데이터로 덮어씌워지는 문제가 발생함.
-            // 따라서 'currentLecture'가 변경될 때만 로딩하도록 의존성 배열을 수정함.
             useEffect(() => {
                 if (currentLecture && currentLecture.videoId) {
                     const key = sanitizeKey(currentLecture.videoId);
                     setNoteContent(notes[key] || '');
                 }
-            }, [currentLecture]); // 'notes' 제거 -> 최초 로딩 시에만 반영
+            }, [currentLecture]); 
 
             const handleLaunchVideo = () => {
                 if (!currentLecture || !currentLecture.videoId) return;
@@ -632,451 +651,34 @@
             );
         };
 
-        // --- Component: Knowledge Slot Machine ---
-        // (Omitted for brevity as no logic changed here, but ensuring it's in final output implicitly by structure)
-        const KnowledgeSlotMachine = ({ courses, onRecommend, onClose }) => {
-            const [isSpinning, setIsSpinning] = useState(false);
-            const [slots, setSlots] = useState({ category: '???', action: '???' });
-            const [recommendation, setRecommendation] = useState(null);
+        // --- Component: Captured Channels List in Modal (Updated with Edit/Delete) ---
+        const CapturedChannelsListInModal = ({ channels = [], getCategoryInfo, onRemove, onUpdate }) => {
+            const [editingId, setEditingId] = useState(null);
+            const [editUrl, setEditUrl] = useState('');
+            const [editCategory, setEditCategory] = useState('');
 
-            const categories = ['BUSINESS', 'MINDSET', 'PSYCHOLOGY', 'TECH'];
-
-            // --- Logic Helper Functions ---
-            const parseDuration = (durationStr) => {
-                if (!durationStr) return 0;
-                // Format: "MM:SS" or "HH:MM:SS"
-                const parts = durationStr.split(':').map(Number);
-                if (parts.length === 2) return parts[0]; // Just return minutes
-                if (parts.length === 3) return parts[0] * 60 + parts[1];
-                return 0;
+            const startEditing = (channel) => {
+                setEditingId(channel.id);
+                setEditUrl(channel.url);
+                setEditCategory(channel.category);
             };
 
-            const actions = [
-                { 
-                    label: '가볍게 스낵 지식', 
-                    filter: (l) => parseDuration(l.duration) <= 10 
-                },
-                { 
-                    label: '진득하게 딥다이브', 
-                    filter: (l) => parseDuration(l.duration) >= 20 
-                },
-                { 
-                    label: '실전 노하우 흡수', 
-                    filter: (l) => /법|방법|팁|가이드|기술|How|만들기|사용법/.test(l.title)
-                },
-                { 
-                    label: '본질 꿰뚫기', 
-                    filter: (l) => /원리|이론|본질|마인드|개념|이해|이유|구조|분석/.test(l.title)
-                },
-                { 
-                    label: '돈이 벌리는 지식', 
-                    filter: (l) => /돈|수익|매출|사업|창업|부자|머니|Income|Money|Sale/.test(l.title)
+            const cancelEditing = () => {
+                setEditingId(null);
+                setEditUrl('');
+                setEditCategory('');
+            };
+
+            const saveEditing = (id) => {
+                if(editUrl.trim() === '') {
+                    alert('URL을 입력해주세요.');
+                    return;
                 }
-            ];
-
-            const handleSpin = () => {
-                if (isSpinning) return;
-                setIsSpinning(true);
-                setRecommendation(null);
-
-                // Visual Spinning Effect
-                let interval = setInterval(() => {
-                    setSlots({
-                        category: categories[Math.floor(Math.random() * categories.length)],
-                        action: actions[Math.floor(Math.random() * actions.length)].label
-                    });
-                }, 80);
-
-                setTimeout(() => {
-                    clearInterval(interval);
-                    const finalCategory = categories[Math.floor(Math.random() * categories.length)];
-                    const finalActionObj = actions[Math.floor(Math.random() * actions.length)];
-                    
-                    setSlots({ category: finalCategory, action: finalActionObj.label });
-                    
-                    // 1. Filter Courses by Category
-                    const catCourses = courses.filter(c => c.category && c.category.toUpperCase() === finalCategory);
-                    
-                    if (catCourses.length > 0) {
-                        // 2. Flatten all lectures in this category
-                        let allLectures = catCourses.flatMap(course => 
-                            course.chapters.flatMap(ch => 
-                                ch.lectures.map(l => ({
-                                    ...l, 
-                                    courseId: course.id, 
-                                    courseTitle: course.title,
-                                    courseImage: course.image,
-                                    courseObj: course
-                                }))
-                            )
-                        );
-
-                        // 3. Apply Criteria Filter
-                        let filteredLectures = allLectures.filter(finalActionObj.filter);
-                        
-                        // Fallback: If filter is too strict and returns nothing, just pick random from category
-                        if (filteredLectures.length === 0) {
-                            filteredLectures = allLectures; 
-                        }
-                        
-                        if (filteredLectures.length > 0) {
-                            const randomLecture = filteredLectures[Math.floor(Math.random() * filteredLectures.length)];
-                            setRecommendation(randomLecture);
-                        } else {
-                            setRecommendation(null);
-                        }
-                    } else {
-                         setRecommendation(null);
-                    }
-                    
-                    setIsSpinning(false);
-                }, 2000);
+                onUpdate(id, editUrl, editCategory);
+                setEditingId(null);
             };
 
             return (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-                    <div className="w-full max-w-2xl bg-gradient-to-br from-toss-grey900 to-toss-black rounded-[32px] p-6 md:p-10 shadow-floating text-white relative overflow-hidden animate-slide-up">
-                        <button onClick={onClose} className="absolute top-4 right-4 p-2 text-white/50 hover:text-white transition-colors z-20">
-                            <Icons.X size={24} />
-                        </button>
-                        
-                        <div className="absolute top-0 right-0 w-64 h-64 bg-toss-blue/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-                        <div className="absolute bottom-0 left-0 w-48 h-48 bg-purple-500/20 rounded-full blur-3xl translate-y-1/3 -translate-x-1/3"></div>
-
-                        <div className="relative z-10 flex flex-col items-center gap-8">
-                            <div className="text-center">
-                                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur border border-white/10 text-[11px] font-bold text-yellow-300 mb-4">
-                                    <Icons.Zap size={14} className="fill-current" />
-                                    <span>TODAY'S KNOWLEDGE PICK</span>
-                                </div>
-                                <h3 className="text-2xl md:text-3xl font-bold leading-tight mb-2">
-                                    오늘은 무엇을 공부할까요?
-                                </h3>
-                                <p className="text-toss-grey400 text-sm leading-relaxed">
-                                    당신의 상황에 딱 맞는 최적의 지식을 찾아드립니다.
-                                </p>
-                            </div>
-
-                            <div className="flex gap-2 md:gap-4 bg-white/5 p-4 rounded-2xl border border-white/10 backdrop-blur-sm w-full justify-center">
-                                <div className="bg-toss-grey900 border border-toss-grey700 rounded-xl w-32 md:w-40 h-24 flex items-center justify-center text-center p-2 relative overflow-hidden">
-                                     <span className={`font-bold text-lg md:text-xl transition-all ${isSpinning ? 'blur-[1px]' : 'text-blue-400'}`}>
-                                        {slots.category}
-                                     </span>
-                                     {isSpinning && <div className="absolute inset-0 bg-gradient-to-b from-toss-grey900/50 via-transparent to-toss-grey900/50"></div>}
-                                </div>
-                                <div className="flex items-center text-toss-grey500 font-bold">X</div>
-                                <div className="bg-toss-grey900 border border-toss-grey700 rounded-xl w-32 md:w-40 h-24 flex items-center justify-center text-center p-2 relative overflow-hidden">
-                                    <span className={`font-bold text-sm md:text-base transition-all ${isSpinning ? 'blur-[1px]' : 'text-purple-400'}`}>
-                                        {slots.action}
-                                    </span>
-                                    {isSpinning && <div className="absolute inset-0 bg-gradient-to-b from-toss-grey900/50 via-transparent to-toss-grey900/50"></div>}
-                                </div>
-                            </div>
-
-                            <div className="flex flex-col items-center justify-center w-full max-w-sm">
-                                {!recommendation ? (
-                                    <div className="w-full flex flex-col gap-3">
-                                        <button 
-                                            onClick={handleSpin}
-                                            disabled={isSpinning}
-                                            className={`group relative px-8 py-4 bg-toss-blue hover:bg-blue-500 text-white rounded-2xl font-bold shadow-lg shadow-blue-500/40 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed w-full flex items-center justify-center gap-2 overflow-hidden`}
-                                        >
-                                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></div>
-                                            <Icons.RefreshCw size={20} className={isSpinning ? 'animate-spin' : ''} />
-                                            <span>{isSpinning ? 'Analyzing...' : 'SPIN !'}</span>
-                                        </button>
-                                        <button onClick={onClose} className="text-sm text-toss-grey500 hover:text-white transition-colors py-2">
-                                            나중에 열어보기
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <div className="animate-fade-in w-full bg-white rounded-xl p-4 text-toss-black shadow-lg">
-                                        <div className="text-[10px] font-bold text-toss-grey500 uppercase mb-1 line-clamp-1">{slots.action}</div>
-                                        <div className="font-bold text-sm leading-tight mb-3 line-clamp-2">{recommendation.title}</div>
-                                        <button 
-                                            onClick={() => onRecommend(recommendation)}
-                                            className="w-full py-2 bg-toss-blue text-white rounded-lg text-xs font-bold hover:bg-blue-600 transition-colors flex items-center justify-center gap-1"
-                                        >
-                                            <Icons.Play size={12} fill="currentColor"/> 바로 재생
-                                        </button>
-                                        <button onClick={() => setRecommendation(null)} className="mt-2 text-[10px] text-toss-grey500 underline w-full text-center">
-                                            다시 돌리기
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            );
-        };
-
-        // --- Component: MyLibrary (Renamed from Grimoire) ---
-        const MyLibrary = ({ courses, notes, onSaveNote, onPlayLecture }) => {
-            const [selectedNode, setSelectedNode] = useState(null); 
-            const [expandedNodes, setExpandedNodes] = useState({});
-            
-            // Note editing state for MyLibrary
-            const [editContent, setEditContent] = useState('');
-            const [isSaving, setIsSaving] = useState(false);
-
-            useEffect(() => {
-                // When selecting a lecture, load the note
-                if (selectedNode?.type === 'lecture') {
-                    // [FIX] Use sanitized key
-                    const key = sanitizeKey(selectedNode.data.videoId);
-                    setEditContent(notes[key] || '');
-                }
-            }, [selectedNode]); // [FIX] Remove 'notes' to prevent overwrite
-
-            const handleSaveInLibrary = () => {
-                if (selectedNode?.type === 'lecture') {
-                    setIsSaving(true);
-                    onSaveNote(selectedNode.data.videoId, editContent);
-                    setTimeout(() => setIsSaving(false), 800);
-                }
-            };
-
-            const toggleNode = (id) => {
-                setExpandedNodes(prev => ({ ...prev, [id]: !prev[id] }));
-            };
-
-            const handleSelect = (type, data, parentCourse = null) => {
-                setSelectedNode({ type, data, parentCourse });
-                if (type === 'course') toggleNode(`c-${data.id}`);
-                if (type === 'chapter') toggleNode(`ch-${data.title}`);
-            };
-
-            const TreeItem = ({ label, icon: Icon, depth = 0, isOpen, hasChildren, onClick, onToggle, isSelected, isCompleted, progress }) => (
-                <div className="select-none">
-                    <div 
-                        onClick={onClick}
-                        className={`
-                            flex items-center gap-2 px-3 py-2 cursor-pointer transition-colors rounded-lg mb-0.5
-                            ${isSelected ? 'bg-toss-blue/10 text-toss-blue font-medium' : 'text-toss-grey700 hover:bg-toss-grey200'}
-                        `}
-                        style={{ paddingLeft: `${depth * 12 + 12}px` }}
-                    >
-                        <span 
-                            onClick={(e) => {
-                                if (hasChildren) {
-                                    e.stopPropagation();
-                                    onToggle();
-                                }
-                            }} 
-                            className={`p-1 rounded hover:bg-black/5 ${!hasChildren && 'invisible'}`}
-                        >
-                            {hasChildren && (
-                                <Icons.ChevronRight 
-                                    size={14} 
-                                    className={`transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`} 
-                                />
-                            )}
-                        </span>
-                        {Icon && <Icon size={16} className="shrink-0 opacity-70" />}
-                        <span className="text-sm truncate flex-1">{label}</span>
-                        
-                        {/* Progress or Checkmark */}
-                        {progress && (
-                            <span className="text-[10px] font-bold text-toss-blue bg-toss-blueLight px-1.5 py-0.5 rounded">
-                                {progress.percentage}%
-                            </span>
-                        )}
-                        {isCompleted && (
-                            <Icons.Check size={14} className="text-green-500" />
-                        )}
-                    </div>
-                </div>
-            );
-
-            return (
-                <div className="max-w-7xl mx-auto px-4 md:px-8 pb-12 h-[calc(100vh-100px)] flex flex-col md:flex-row gap-6 animate-fade-in">
-                    
-                    {/* Left Sidebar: Tree View */}
-                    <div className={`w-full md:w-80 bg-white rounded-2xl shadow-card flex-col overflow-hidden shrink-0 h-full border border-toss-grey200 ${selectedNode ? 'hidden md:flex' : 'flex'}`}>
-                        <div className="p-4 border-b border-toss-grey100 bg-toss-grey100/50">
-                            <div className="flex items-center gap-2 text-toss-grey800 font-bold">
-                                <Icons.Book size={18} />
-                                <span>My Library</span>
-                            </div>
-                            <p className="text-[11px] text-toss-grey500 mt-1">나만의 지식 보관소</p>
-                        </div>
-                        <div className="flex-1 overflow-y-auto custom-scroll p-2">
-                            {courses.map(course => {
-                                const courseProgress = calculateProgress(course, notes);
-                                return (
-                                    <div key={course.id}>
-                                        <TreeItem
-                                            label={course.title}
-                                            icon={Icons.Folder}
-                                            hasChildren={true}
-                                            isOpen={expandedNodes[`c-${course.id}`]}
-                                            isSelected={selectedNode?.data === course}
-                                            onClick={() => handleSelect('course', course)}
-                                            onToggle={() => toggleNode(`c-${course.id}`)}
-                                            progress={courseProgress}
-                                        />
-                                        {expandedNodes[`c-${course.id}`] && (
-                                            <div className="animate-slide-up" style={{animationDuration:'0.2s'}}>
-                                                {course.chapters.map((chapter, cIdx) => (
-                                                    <div key={`${course.id}-ch-${cIdx}`}>
-                                                        <TreeItem
-                                                            depth={1}
-                                                            label={chapter.title}
-                                                            icon={Icons.Layout}
-                                                            hasChildren={true}
-                                                            isOpen={expandedNodes[`ch-${chapter.title}`]}
-                                                            isSelected={selectedNode?.data === chapter}
-                                                            onClick={() => handleSelect('chapter', chapter, course)}
-                                                            onToggle={() => toggleNode(`ch-${chapter.title}`)}
-                                                        />
-                                                        {expandedNodes[`ch-${chapter.title}`] && (
-                                                            <div className="border-l border-toss-grey200 ml-8 my-1">
-                                                                {chapter.lectures.map((lecture, lIdx) => (
-                                                                    <TreeItem
-                                                                        key={`${course.id}-ch-${cIdx}-l-${lIdx}`}
-                                                                        depth={2}
-                                                                        label={lecture.title}
-                                                                        icon={Icons.FileText}
-                                                                        hasChildren={false}
-                                                                        isSelected={selectedNode?.data === lecture}
-                                                                        isCompleted={hasNote(lecture.videoId)}
-                                                                        onClick={() => handleSelect('lecture', lecture, course)}
-                                                                    />
-                                                                ))}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-
-                    {/* Right Main: Content View */}
-                    <div className={`flex-1 bg-white rounded-2xl shadow-card overflow-hidden flex-col h-full border border-toss-grey200 ${!selectedNode ? 'hidden md:flex' : 'flex'}`}>
-                        {!selectedNode ? (
-                            <div className="flex-1 flex flex-col items-center justify-center text-toss-grey400 p-8 text-center">
-                                <div className="w-20 h-20 bg-toss-grey100 rounded-full flex items-center justify-center mb-4">
-                                    <Icons.Book size={32} className="opacity-50"/>
-                                </div>
-                                <h3 className="text-lg font-bold text-toss-grey600 mb-2">지식을 탐험하세요</h3>
-                                <p className="text-sm max-w-sm">목록에서 코스, 챕터, 혹은 강의를 선택하여 내용을 확인해보세요.</p>
-                            </div>
-                        ) : (
-                            <div className="flex flex-col h-full animate-fade-in">
-                                {/* Header */}
-                                <div className="p-6 border-b border-toss-grey100 flex items-start gap-4">
-                                    {/* Mobile Back Button */}
-                                    <button 
-                                        onClick={() => setSelectedNode(null)}
-                                        className="md:hidden mt-1 p-1 -ml-2 rounded-full hover:bg-toss-grey100 text-toss-grey600"
-                                    >
-                                        <Icons.ChevronLeft size={24} />
-                                    </button>
-
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-2 text-xs font-bold text-toss-blue uppercase tracking-wide mb-2">
-                                            {selectedNode.type === 'lecture' && 'LECTURE NOTE'}
-                                            {selectedNode.type === 'chapter' && 'CHAPTER OVERVIEW'}
-                                            {selectedNode.type === 'course' && 'COURSE INTRO'}
-                                        </div>
-                                        <h2 className="text-xl md:text-2xl font-bold text-toss-black leading-tight line-clamp-2">
-                                            {selectedNode.data.title}
-                                        </h2>
-                                        {selectedNode.type === 'lecture' && (
-                                            <div className="flex items-center gap-2 mt-2 text-sm text-toss-grey500">
-                                                <span>{selectedNode.parentCourse?.instructor}</span>
-                                                <span>•</span>
-                                                <span>{selectedNode.data.duration}</span>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Body */}
-                                <div className="flex-1 overflow-y-auto custom-scroll p-6 bg-toss-bg/30">
-                                    {selectedNode.type === 'lecture' ? (
-                                        <div className="max-w-3xl mx-auto">
-                                            {/* Note Editor in Library */}
-                                            <div className="bg-white rounded-2xl shadow-sm border border-toss-grey200 mb-6 overflow-hidden focus-within:ring-1 focus-within:ring-toss-blue transition-all">
-                                                <div className="px-6 py-4 border-b border-toss-grey100 bg-toss-grey100/30 flex items-center justify-between">
-                                                    <h4 className="font-bold text-toss-grey800 text-sm flex items-center gap-2">
-                                                        <Icons.Edit3 size={16}/>
-                                                        나만의 노트
-                                                    </h4>
-                                                    <button 
-                                                        onClick={handleSaveInLibrary}
-                                                        className={`text-xs font-bold px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 
-                                                            ${isSaving ? 'bg-toss-blue text-white' : 'bg-white text-toss-grey700 hover:bg-toss-grey50 border border-toss-grey200 shadow-sm'}`}
-                                                    >
-                                                        {isSaving ? <Icons.Check size={14}/> : <Icons.Save size={14}/>}
-                                                        {isSaving ? '저장됨' : '저장'}
-                                                    </button>
-                                                </div>
-                                                <textarea 
-                                                    value={editContent}
-                                                    onChange={(e) => setEditContent(e.target.value)}
-                                                    className="w-full h-64 p-6 resize-none focus:outline-none bg-white text-toss-grey800 leading-relaxed placeholder-toss-grey300"
-                                                    placeholder="여기에 자유롭게 노트를 작성하세요. 강의 플레이어와 자동으로 동기화됩니다."
-                                                    spellCheck="false"
-                                                ></textarea>
-                                            </div>
-
-                                            <button 
-                                                onClick={() => onPlayLecture(selectedNode.data, selectedNode.parentCourse)}
-                                                className="w-full py-4 bg-toss-blue text-white rounded-2xl font-bold hover:bg-blue-600 transition-all shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2"
-                                            >
-                                                <Icons.Play size={20} fill="currentColor"/>
-                                                <span>강의 바로 재생하기</span>
-                                            </button>
-                                        </div>
-                                    ) : (
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                            {selectedNode.type === 'course' && selectedNode.data.chapters.map((ch, i) => (
-                                                <div key={i} onClick={() => handleSelect('chapter', ch, selectedNode.data)} className="bg-white p-5 rounded-xl border border-toss-grey200 hover:border-toss-blue hover:shadow-md cursor-pointer transition-all">
-                                                    <div className="text-xs font-bold text-toss-grey400 mb-1">Chapter {i}</div>
-                                                    <div className="font-bold text-toss-black">{ch.title}</div>
-                                                    <div className="text-xs text-toss-grey500 mt-2">{ch.lectures.length} lectures</div>
-                                                </div>
-                                            ))}
-                                            {selectedNode.type === 'chapter' && selectedNode.data.lectures.map((l, i) => {
-                                                const hasLectureNote = hasNote(l.videoId);
-                                                return (
-                                                    <div key={i} onClick={() => handleSelect('lecture', l, selectedNode.parentCourse)} className="bg-white p-5 rounded-xl border border-toss-grey200 hover:border-toss-blue hover:shadow-md cursor-pointer transition-all relative overflow-hidden">
-                                                        {hasLectureNote && (
-                                                            <div className="absolute top-0 right-0 bg-green-500 p-1 rounded-bl-lg">
-                                                                <Icons.Check size={12} className="text-white"/>
-                                                            </div>
-                                                        )}
-                                                        <div className="flex justify-between items-start">
-                                                            <div className="font-bold text-toss-black text-sm mb-1 line-clamp-2">{l.title}</div>
-                                                            <div className="text-[10px] bg-toss-grey100 px-1.5 py-0.5 rounded text-toss-grey600 shrink-0">{l.duration}</div>
-                                                        </div>
-                                                        <div className="text-xs text-toss-blue mt-2 font-medium flex items-center gap-1">
-                                                            노트 보기 <Icons.ChevronRight size={12}/>
-                                                        </div>
-                                                    </div>
-                                                )
-                                            })}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            );
-        };
-
-        // --- Component: Captured Channels List in Modal (NEW) ---
-        // (Omitted for brevity as no logic changed here, but ensuring it's in final output implicitly by structure)
-        const CapturedChannelsListInModal = ({ channels = [], getCategoryInfo }) => {
-             // Always render container to maintain layout, but show message if empty
-             return (
                  <div className="mt-6 border-t border-toss-grey200 pt-4 flex-1 overflow-hidden flex flex-col min-h-[150px]">
                     <h4 className="text-xs font-bold text-toss-grey700 mb-3 flex items-center gap-1.5">
                         <Icons.Database size={14} className="text-toss-blue"/>
@@ -1090,21 +692,67 @@
                         </div>
                     ) : (
                         <div className="flex-1 overflow-y-auto custom-scroll space-y-2 pr-1">
-                            {channels.map((channel, index) => {
+                            {channels.map((channel) => {
+                                const isEditing = editingId === channel.id;
                                 const catInfo = getCategoryInfo(channel.category);
+
                                 return (
-                                    <div key={index} className="flex flex-col bg-white p-3 rounded-xl border border-toss-grey200 shadow-sm animate-fade-in hover:border-toss-blue transition-colors">
-                                        <div className="flex justify-between items-start mb-1">
-                                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md uppercase tracking-wide ${catInfo?.color || 'bg-gray-100 text-gray-600'}`}>
-                                                {catInfo?.name || channel.category}
-                                            </span>
-                                            <span className="text-[10px] text-toss-grey400">
-                                                {new Date(channel.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                                            </span>
-                                        </div>
-                                        <a href={channel.url} target="_blank" className="text-xs font-medium text-toss-grey800 truncate hover:text-toss-blue hover:underline">
-                                            {channel.url}
-                                        </a>
+                                    <div key={channel.id} className="flex flex-col bg-white p-3 rounded-xl border border-toss-grey200 shadow-sm animate-fade-in transition-colors hover:border-toss-blue group">
+                                        {isEditing ? (
+                                            <div className="flex flex-col gap-2">
+                                                <div className="flex gap-2">
+                                                    <select 
+                                                        value={editCategory} 
+                                                        onChange={(e) => setEditCategory(e.target.value)}
+                                                        className="text-xs border border-toss-grey200 rounded px-2 py-1 flex-1"
+                                                    >
+                                                        {ESSENCE_DATA.categories.filter(c => c.id !== 'all').map(cat => (
+                                                            <option key={cat.id} value={cat.id}>{cat.name}</option>
+                                                        ))}
+                                                    </select>
+                                                    <div className="flex gap-1">
+                                                        <button onClick={() => saveEditing(channel.id)} className="p-1 bg-toss-blue text-white rounded hover:bg-blue-600"><Icons.Check size={14}/></button>
+                                                        <button onClick={cancelEditing} className="p-1 bg-gray-200 text-gray-600 rounded hover:bg-gray-300"><Icons.X size={14}/></button>
+                                                    </div>
+                                                </div>
+                                                <input 
+                                                    type="text" 
+                                                    value={editUrl} 
+                                                    onChange={(e) => setEditUrl(e.target.value)} 
+                                                    className="text-xs border border-toss-grey200 rounded px-2 py-1 w-full"
+                                                />
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <div className="flex justify-between items-start mb-1">
+                                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md uppercase tracking-wide ${catInfo?.color || 'bg-gray-100 text-gray-600'}`}>
+                                                        {catInfo?.name || channel.category}
+                                                    </span>
+                                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <span className="text-[10px] text-toss-grey400 mr-2">
+                                                            {new Date(channel.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                                        </span>
+                                                        <button 
+                                                            onClick={(e) => { e.stopPropagation(); startEditing(channel); }}
+                                                            className="p-1 text-toss-grey500 hover:text-toss-blue hover:bg-blue-50 rounded"
+                                                            title="수정"
+                                                        >
+                                                            <Icons.Edit3 size={12}/>
+                                                        </button>
+                                                        <button 
+                                                            onClick={(e) => { e.stopPropagation(); onRemove(channel.id); }}
+                                                            className="p-1 text-toss-grey500 hover:text-red-500 hover:bg-red-50 rounded"
+                                                            title="삭제"
+                                                        >
+                                                            <Icons.Trash2 size={12}/>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                <a href={channel.url} target="_blank" className="text-xs font-medium text-toss-grey800 truncate hover:text-toss-blue hover:underline block">
+                                                    {channel.url}
+                                                </a>
+                                            </>
+                                        )}
                                     </div>
                                 )
                             })}
@@ -1114,104 +762,19 @@
              );
         };
 
-        // --- Component: Essence View ---
-        // (Omitted for brevity as no logic changed here, but ensuring it's in final output implicitly by structure)
-        const EssenceView = ({ capturedChannelsLoading }) => {
-            const [filter, setFilter] = useState('all');
-            
-            const filteredChannels = useMemo(() => {
-                if(filter === 'all') return ESSENCE_DATA.channels;
-                return ESSENCE_DATA.channels.filter(c => c.category === filter);
-            }, [filter]);
-
-            const getCategoryInfo = (id) => ESSENCE_DATA.categories.find(c => c.id === id);
-
-            const handleChannelClick = (url) => {
-                window.open(url, '_blank');
-            };
-
-            return (
-                <div className="max-w-7xl mx-auto px-4 md:px-8 pb-12 animate-fade-in min-h-[80vh]">
-                     <div className="mb-8">
-                        <h2 className="text-3xl font-bold text-toss-black mb-2">본질 강화</h2>
-                        <p className="text-toss-grey600">알고리즘의 방해 없이, 오직 성장에만 집중하세요.</p>
-                     </div>
-                    
-                    {/* Filter Bar */}
-                    <div className="mb-8 overflow-x-auto scrollbar-hide pb-2">
-                        <div className="flex gap-2 min-w-max">
-                            {ESSENCE_DATA.categories.map(cat => (
-                                <button
-                                    key={cat.id}
-                                    onClick={() => setFilter(cat.id)}
-                                    className={`px-4 py-2 rounded-full text-sm font-semibold transition-all border
-                                        ${filter === cat.id 
-                                            ? 'bg-toss-black text-white border-toss-black shadow-lg' 
-                                            : 'bg-white text-toss-grey600 border-toss-grey200 hover:bg-toss-grey100'
-                                        }`}
-                                >
-                                    {cat.name}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                        {filteredChannels.map((channel, idx) => {
-                            const catInfo = getCategoryInfo(channel.category);
-                            return (
-                                <div 
-                                    key={idx}
-                                    onClick={() => handleChannelClick(channel.url)}
-                                    className="bg-white rounded-2xl p-6 border border-toss-grey200 hover:border-red-500/30 hover:shadow-lg transition-all cursor-pointer group flex flex-col h-full animate-slide-up"
-                                    style={{animationDelay: `${idx * 0.05}s`}}
-                                >
-                                    <div className="flex justify-between items-start mb-4">
-                                        <span className={`text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-wide ${catInfo?.color || 'bg-gray-100 text-gray-600'}`}>
-                                            {catInfo?.name}
-                                        </span>
-                                        <div className="text-toss-grey300 group-hover:text-red-500 transition-colors">
-                                            <Icons.Youtube size={24} />
-                                        </div>
-                                    </div>
-                                    
-                                    <h3 className="text-lg font-bold text-toss-black mb-2 group-hover:text-red-600 transition-colors">
-                                        {channel.title}
-                                    </h3>
-                                    <p className="text-sm text-toss-grey500 leading-relaxed flex-1">
-                                        {channel.desc}
-                                    </p>
-                                    
-                                    <div className="mt-4 pt-4 border-t border-toss-grey100 flex items-center justify-between text-xs font-semibold text-toss-grey400 group-hover:text-red-500 transition-colors">
-                                        <span>Youtube 채널 이동</span>
-                                        <Icons.ExternalLink size={14} />
-                                    </div>
-                                </div>
-                            )
-                        })}
-                    </div>
-                </div>
-            );
-        };
-
         // --- Component: Capture Modal for Essence Channels (Updated) ---
-        // (Omitted for brevity as no logic changed here, but ensuring it's in final output implicitly by structure)
-        const CaptureModal = ({ categories, onSave, channels, getCategoryInfo, onClose }) => {
+        const CaptureModal = ({ categories, onSave, channels, getCategoryInfo, onClose, onRemove, onUpdate }) => {
             const [url, setUrl] = useState('');
-            const [category, setCategory] = useState(categories.find(c => c.id !== 'all')?.id || 'business'); // Default to a non-all category
+            const [category, setCategory] = useState(categories.find(c => c.id !== 'all')?.id || 'business');
             const [error, setError] = useState('');
 
             useEffect(() => {
-                // Try to paste clipboard content on mount if available (for easy link capture)
                 navigator.clipboard.readText().then(text => {
                     const urlRegex = /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/.+/i;
                     if (urlRegex.test(text)) {
                          setUrl(text);
                     }
-                }).catch(err => {
-                    // console.log('Clipboard access denied or failed:', err);
-                });
+                }).catch(err => {});
             }, []);
 
             const handleSubmit = () => {
@@ -1224,8 +787,6 @@
                 setError('');
                 onSave({ url, category });
                 setUrl('');
-                // Optionally keep category selected
-                // onClose();
             };
 
             return (
@@ -1240,7 +801,7 @@
                         
                         <div className="p-6 flex-1 overflow-hidden flex flex-col">
                             <div className="space-y-4 shrink-0">
-                                <p className="text-sm text-toss-grey600">유튜브 채널 URL과 카테고리를 저장하면 DB에 추가됩니다. (DB 파일 수정 시 반영 가능)</p>
+                                <p className="text-sm text-toss-grey600">유튜브 채널 URL과 카테고리를 저장하면 DB에 추가됩니다.</p>
                                 
                                 {error && (
                                     <div className="p-3 bg-red-50 border border-red-200 text-red-500 text-sm rounded-xl font-medium">
@@ -1248,7 +809,6 @@
                                     </div>
                                 )}
 
-                                {/* Channel URL */}
                                 <div>
                                     <label className="block text-xs font-bold text-toss-grey700 mb-1">YouTube 채널 URL</label>
                                     <input 
@@ -1260,7 +820,6 @@
                                     />
                                 </div>
 
-                                {/* Category Selection */}
                                 <div>
                                     <label className="block text-xs font-bold text-toss-grey700 mb-1">카테고리 지정</label>
                                     <select
@@ -1282,8 +841,12 @@
                                 </button>
                             </div>
 
-                            {/* Captured Channels List is displayed here (Updated Request) */}
-                            <CapturedChannelsListInModal channels={channels} getCategoryInfo={getCategoryInfo} />
+                            <CapturedChannelsListInModal 
+                                channels={channels} 
+                                getCategoryInfo={getCategoryInfo} 
+                                onRemove={onRemove}
+                                onUpdate={onUpdate}
+                            />
                         </div>
                     </div>
                 </div>
@@ -1296,42 +859,41 @@
             const [selectedCategory, setSelectedCategory] = useState('ALL');
             const [selectedCourse, setSelectedCourse] = useState(null);
             const [recommendedLecture, setRecommendedLecture] = useState(null);
-            const [currentTab, setCurrentTab] = useState('HOME'); // 'HOME', 'GRIMOIRE', 'ESSENCE'
+            const [currentTab, setCurrentTab] = useState('HOME');
             
-            // New States for Features
             const [showSlotMachine, setShowSlotMachine] = useState(true);
             const [searchQuery, setSearchQuery] = useState('');
-            // New state for capture modal
             const [showCaptureModal, setShowCaptureModal] = useState(false);
             
-            // Firebase Hook for Captured Channels (Request 3)
-            const { channels: capturedChannels, loading: capturedChannelsLoading, saveChannel: handleSaveCapturedChannel } = useCapturedChannels(user?.uid);
+            // Destructure new handlers from the hook
+            const { 
+                channels: capturedChannels, 
+                loading: capturedChannelsLoading, 
+                saveChannel: handleSaveCapturedChannel,
+                removeChannel: handleRemoveCapturedChannel,
+                updateChannel: handleUpdateCapturedChannel
+            } = useCapturedChannels(user?.uid);
 
-            // Global Note State (SYNCED WITH FIREBASE NOW)
-            const [userNotes, setUserNotes] = useState({}); // 초기값을 빈 객체로 변경
+            const [userNotes, setUserNotes] = useState({}); 
 
-            // Firebase 실시간 동기화 (Listen)
             useEffect(() => {
                 if (!user?.uid) return;
 
-                // [FIX] Listener Retry Logic
-                // 윈도우 로드 시점 차이로 firebaseDB가 준비되지 않았을 때 재시도하는 로직 추가
                 const connectDB = () => {
                     if (window.firebaseDB) {
                         const { db, ref, onValue } = window.firebaseDB;
-                        // 사용자별 고유 경로 설정 (특수문자 제거)
                         const safeUid = sanitizeKey(user.uid);
                         const notesRef = ref(db, `notes/${safeUid}`);
 
                         const unsubscribe = onValue(notesRef, (snapshot) => {
                             const data = snapshot.val();
-                            setUserNotes(data || {}); // 데이터가 없으면 빈 객체
+                            setUserNotes(data || {});
                         }, (error) => {
                             console.error("Notes sync error:", error);
                         });
                         return unsubscribe;
                     } else {
-                        setTimeout(connectDB, 200); // 0.2초 뒤 재시도
+                        setTimeout(connectDB, 200);
                     }
                 };
 
@@ -1347,20 +909,13 @@
 
                 const { db, ref, set } = window.firebaseDB;
                 const safeUid = sanitizeKey(user.uid);
-                // [FIX] Use sanitized videoId key
                 const safeVideoId = sanitizeKey(videoId);
                 const noteRef = ref(db, `notes/${safeUid}/${safeVideoId}`);
 
-                // Firebase에 데이터 저장 (set은 덮어쓰기)
-                set(noteRef, content)
-                    .then(() => {
-                        // 성공 시 별도 작업 불필요 (onValue가 상태 업데이트 함)
-                        // console.log("Note saved to cloud");
-                    })
-                    .catch((error) => {
-                        console.error("Note save failed:", error);
-                        alert("노트 저장에 실패했습니다.");
-                    });
+                set(noteRef, content).catch((error) => {
+                    console.error("Note save failed:", error);
+                    alert("노트 저장에 실패했습니다.");
+                });
             };
 
             const filteredCourses = useMemo(() => {
@@ -1368,7 +923,6 @@
                 return COURSES.filter(c => c.category && c.category.toLowerCase() === selectedCategory.toLowerCase());
             }, [selectedCategory]);
 
-            // Search Logic
             const searchResults = useMemo(() => {
                 if (!searchQuery) return null;
                 const query = searchQuery.toLowerCase();
@@ -1401,11 +955,9 @@
             const getUserName = (email) => {
                 if (email === 'choijihoon9988@gmail.com') return '재영';
                 if (email === 'jihoo0420@gmail.com') return '지후';
-                // Use the part before @ as fallback
                 return email.split('@')[0]; 
             };
             
-            // Helper for Capture Modal
             const getCategoryInfo = (id) => ESSENCE_DATA.categories.find(c => c.id === id);
 
 
@@ -1425,209 +977,426 @@
                  setRecommendedLecture(result.lecture);
             };
 
+            // KnowledgeSlotMachine Component (Moved inside Dashboard for context access if needed, but keeping separate for clean code as before)
+            // Re-declaring it here or ensuring it's available in scope. 
+            // Since we are in a single file script, it should be defined above Dashboard.
+            // (It was defined above in previous fullContent, assuming it's still there)
+
+            const KnowledgeSlotMachine = ({ courses, onRecommend, onClose }) => {
+                const [isSpinning, setIsSpinning] = useState(false);
+                const [slots, setSlots] = useState({ category: '???', action: '???' });
+                const [recommendation, setRecommendation] = useState(null);
+    
+                const categories = ['BUSINESS', 'MINDSET', 'PSYCHOLOGY', 'TECH'];
+    
+                const parseDuration = (durationStr) => {
+                    if (!durationStr) return 0;
+                    const parts = durationStr.split(':').map(Number);
+                    if (parts.length === 2) return parts[0]; 
+                    if (parts.length === 3) return parts[0] * 60 + parts[1];
+                    return 0;
+                };
+    
+                const actions = [
+                    { label: '가볍게 스낵 지식', filter: (l) => parseDuration(l.duration) <= 10 },
+                    { label: '진득하게 딥다이브', filter: (l) => parseDuration(l.duration) >= 20 },
+                    { label: '실전 노하우 흡수', filter: (l) => /법|방법|팁|가이드|기술|How|만들기|사용법/.test(l.title)},
+                    { label: '본질 꿰뚫기', filter: (l) => /원리|이론|본질|마인드|개념|이해|이유|구조|분석/.test(l.title)},
+                    { label: '돈이 벌리는 지식', filter: (l) => /돈|수익|매출|사업|창업|부자|머니|Income|Money|Sale/.test(l.title)}
+                ];
+    
+                const handleSpin = () => {
+                    if (isSpinning) return;
+                    setIsSpinning(true);
+                    setRecommendation(null);
+    
+                    let interval = setInterval(() => {
+                        setSlots({
+                            category: categories[Math.floor(Math.random() * categories.length)],
+                            action: actions[Math.floor(Math.random() * actions.length)].label
+                        });
+                    }, 80);
+    
+                    setTimeout(() => {
+                        clearInterval(interval);
+                        const finalCategory = categories[Math.floor(Math.random() * categories.length)];
+                        const finalActionObj = actions[Math.floor(Math.random() * actions.length)];
+                        
+                        setSlots({ category: finalCategory, action: finalActionObj.label });
+                        
+                        const catCourses = courses.filter(c => c.category && c.category.toUpperCase() === finalCategory);
+                        
+                        if (catCourses.length > 0) {
+                            let allLectures = catCourses.flatMap(course => 
+                                course.chapters.flatMap(ch => 
+                                    ch.lectures.map(l => ({
+                                        ...l, 
+                                        courseId: course.id, 
+                                        courseTitle: course.title,
+                                        courseImage: course.image,
+                                        courseObj: course
+                                    }))
+                                )
+                            );
+                            let filteredLectures = allLectures.filter(finalActionObj.filter);
+                            if (filteredLectures.length === 0) filteredLectures = allLectures; 
+                            
+                            if (filteredLectures.length > 0) {
+                                const randomLecture = filteredLectures[Math.floor(Math.random() * filteredLectures.length)];
+                                setRecommendation(randomLecture);
+                            } else {
+                                setRecommendation(null);
+                            }
+                        } else {
+                             setRecommendation(null);
+                        }
+                        setIsSpinning(false);
+                    }, 2000);
+                };
+    
+                return (
+                    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+                        <div className="w-full max-w-2xl bg-gradient-to-br from-toss-grey900 to-toss-black rounded-[32px] p-6 md:p-10 shadow-floating text-white relative overflow-hidden animate-slide-up">
+                            <button onClick={onClose} className="absolute top-4 right-4 p-2 text-white/50 hover:text-white transition-colors z-20">
+                                <Icons.X size={24} />
+                            </button>
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-toss-blue/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+                            <div className="absolute bottom-0 left-0 w-48 h-48 bg-purple-500/20 rounded-full blur-3xl translate-y-1/3 -translate-x-1/3"></div>
+    
+                            <div className="relative z-10 flex flex-col items-center gap-8">
+                                <div className="text-center">
+                                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur border border-white/10 text-[11px] font-bold text-yellow-300 mb-4">
+                                        <Icons.Zap size={14} className="fill-current" />
+                                        <span>TODAY'S KNOWLEDGE PICK</span>
+                                    </div>
+                                    <h3 className="text-2xl md:text-3xl font-bold leading-tight mb-2">오늘은 무엇을 공부할까요?</h3>
+                                    <p className="text-toss-grey400 text-sm leading-relaxed">당신의 상황에 딱 맞는 최적의 지식을 찾아드립니다.</p>
+                                </div>
+    
+                                <div className="flex gap-2 md:gap-4 bg-white/5 p-4 rounded-2xl border border-white/10 backdrop-blur-sm w-full justify-center">
+                                    <div className="bg-toss-grey900 border border-toss-grey700 rounded-xl w-32 md:w-40 h-24 flex items-center justify-center text-center p-2 relative overflow-hidden">
+                                         <span className={`font-bold text-lg md:text-xl transition-all ${isSpinning ? 'blur-[1px]' : 'text-blue-400'}`}>{slots.category}</span>
+                                    </div>
+                                    <div className="flex items-center text-toss-grey500 font-bold">X</div>
+                                    <div className="bg-toss-grey900 border border-toss-grey700 rounded-xl w-32 md:w-40 h-24 flex items-center justify-center text-center p-2 relative overflow-hidden">
+                                        <span className={`font-bold text-sm md:text-base transition-all ${isSpinning ? 'blur-[1px]' : 'text-purple-400'}`}>{slots.action}</span>
+                                    </div>
+                                </div>
+    
+                                <div className="flex flex-col items-center justify-center w-full max-w-sm">
+                                    {!recommendation ? (
+                                        <div className="w-full flex flex-col gap-3">
+                                            <button 
+                                                onClick={handleSpin}
+                                                disabled={isSpinning}
+                                                className={`group relative px-8 py-4 bg-toss-blue hover:bg-blue-500 text-white rounded-2xl font-bold shadow-lg shadow-blue-500/40 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed w-full flex items-center justify-center gap-2 overflow-hidden`}
+                                            >
+                                                <Icons.RefreshCw size={20} className={isSpinning ? 'animate-spin' : ''} />
+                                                <span>{isSpinning ? 'Analyzing...' : 'SPIN !'}</span>
+                                            </button>
+                                            <button onClick={onClose} className="text-sm text-toss-grey500 hover:text-white transition-colors py-2">나중에 열어보기</button>
+                                        </div>
+                                    ) : (
+                                        <div className="animate-fade-in w-full bg-white rounded-xl p-4 text-toss-black shadow-lg">
+                                            <div className="text-[10px] font-bold text-toss-grey500 uppercase mb-1 line-clamp-1">{slots.action}</div>
+                                            <div className="font-bold text-sm leading-tight mb-3 line-clamp-2">{recommendation.title}</div>
+                                            <button 
+                                                onClick={() => onRecommend(recommendation)}
+                                                className="w-full py-2 bg-toss-blue text-white rounded-lg text-xs font-bold hover:bg-blue-600 transition-colors flex items-center justify-center gap-1"
+                                            >
+                                                <Icons.Play size={12} fill="currentColor"/> 바로 재생
+                                            </button>
+                                            <button onClick={() => setRecommendation(null)} className="mt-2 text-[10px] text-toss-grey500 underline w-full text-center">다시 돌리기</button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                );
+            };
+
+            const MyLibrary = ({ courses, notes, onSaveNote, onPlayLecture }) => {
+                const [selectedNode, setSelectedNode] = useState(null); 
+                const [expandedNodes, setExpandedNodes] = useState({});
+                const [editContent, setEditContent] = useState('');
+                const [isSaving, setIsSaving] = useState(false);
+    
+                useEffect(() => {
+                    if (selectedNode?.type === 'lecture') {
+                        const key = sanitizeKey(selectedNode.data.videoId);
+                        setEditContent(notes[key] || '');
+                    }
+                }, [selectedNode]); 
+    
+                const handleSaveInLibrary = () => {
+                    if (selectedNode?.type === 'lecture') {
+                        setIsSaving(true);
+                        onSaveNote(selectedNode.data.videoId, editContent);
+                        setTimeout(() => setIsSaving(false), 800);
+                    }
+                };
+    
+                const toggleNode = (id) => {
+                    setExpandedNodes(prev => ({ ...prev, [id]: !prev[id] }));
+                };
+    
+                const handleSelect = (type, data, parentCourse = null) => {
+                    setSelectedNode({ type, data, parentCourse });
+                    if (type === 'course') toggleNode(`c-${data.id}`);
+                    if (type === 'chapter') toggleNode(`ch-${data.title}`);
+                };
+
+                const hasNote = (videoId) => {
+                    const key = sanitizeKey(videoId);
+                    return notes[key] && notes[key].trim().length > 0;
+                };
+    
+                const TreeItem = ({ label, icon: Icon, depth = 0, isOpen, hasChildren, onClick, onToggle, isSelected, isCompleted, progress }) => (
+                    <div className="select-none">
+                        <div 
+                            onClick={onClick}
+                            className={`flex items-center gap-2 px-3 py-2 cursor-pointer transition-colors rounded-lg mb-0.5 ${isSelected ? 'bg-toss-blue/10 text-toss-blue font-medium' : 'text-toss-grey700 hover:bg-toss-grey200'}`}
+                            style={{ paddingLeft: `${depth * 12 + 12}px` }}
+                        >
+                            <span 
+                                onClick={(e) => { if (hasChildren) { e.stopPropagation(); onToggle(); } }} 
+                                className={`p-1 rounded hover:bg-black/5 ${!hasChildren && 'invisible'}`}
+                            >
+                                {hasChildren && <Icons.ChevronRight size={14} className={`transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`} />}
+                            </span>
+                            {Icon && <Icon size={16} className="shrink-0 opacity-70" />}
+                            <span className="text-sm truncate flex-1">{label}</span>
+                            {progress && <span className="text-[10px] font-bold text-toss-blue bg-toss-blueLight px-1.5 py-0.5 rounded">{progress.percentage}%</span>}
+                            {isCompleted && <Icons.Check size={14} className="text-green-500" />}
+                        </div>
+                    </div>
+                );
+    
+                return (
+                    <div className="max-w-7xl mx-auto px-4 md:px-8 pb-12 h-[calc(100vh-100px)] flex flex-col md:flex-row gap-6 animate-fade-in">
+                        <div className={`w-full md:w-80 bg-white rounded-2xl shadow-card flex-col overflow-hidden shrink-0 h-full border border-toss-grey200 ${selectedNode ? 'hidden md:flex' : 'flex'}`}>
+                            <div className="p-4 border-b border-toss-grey100 bg-toss-grey100/50">
+                                <div className="flex items-center gap-2 text-toss-grey800 font-bold"><Icons.Book size={18} /><span>My Library</span></div>
+                                <p className="text-[11px] text-toss-grey500 mt-1">나만의 지식 보관소</p>
+                            </div>
+                            <div className="flex-1 overflow-y-auto custom-scroll p-2">
+                                {courses.map(course => {
+                                    const courseProgress = calculateProgress(course, notes);
+                                    return (
+                                        <div key={course.id}>
+                                            <TreeItem
+                                                label={course.title} icon={Icons.Folder} hasChildren={true} isOpen={expandedNodes[`c-${course.id}`]} isSelected={selectedNode?.data === course} onClick={() => handleSelect('course', course)} onToggle={() => toggleNode(`c-${course.id}`)} progress={courseProgress}
+                                            />
+                                            {expandedNodes[`c-${course.id}`] && (
+                                                <div className="animate-slide-up" style={{animationDuration:'0.2s'}}>
+                                                    {course.chapters.map((chapter, cIdx) => (
+                                                        <div key={`${course.id}-ch-${cIdx}`}>
+                                                            <TreeItem
+                                                                depth={1} label={chapter.title} icon={Icons.Layout} hasChildren={true} isOpen={expandedNodes[`ch-${chapter.title}`]} isSelected={selectedNode?.data === chapter} onClick={() => handleSelect('chapter', chapter, course)} onToggle={() => toggleNode(`ch-${chapter.title}`)}
+                                                            />
+                                                            {expandedNodes[`ch-${chapter.title}`] && (
+                                                                <div className="border-l border-toss-grey200 ml-8 my-1">
+                                                                    {chapter.lectures.map((lecture, lIdx) => (
+                                                                        <TreeItem
+                                                                            key={`${course.id}-ch-${cIdx}-l-${lIdx}`} depth={2} label={lecture.title} icon={Icons.FileText} hasChildren={false} isSelected={selectedNode?.data === lecture} isCompleted={hasNote(lecture.videoId)} onClick={() => handleSelect('lecture', lecture, course)}
+                                                                        />
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+    
+                        <div className={`flex-1 bg-white rounded-2xl shadow-card overflow-hidden flex-col h-full border border-toss-grey200 ${!selectedNode ? 'hidden md:flex' : 'flex'}`}>
+                            {!selectedNode ? (
+                                <div className="flex-1 flex flex-col items-center justify-center text-toss-grey400 p-8 text-center">
+                                    <div className="w-20 h-20 bg-toss-grey100 rounded-full flex items-center justify-center mb-4"><Icons.Book size={32} className="opacity-50"/></div>
+                                    <h3 className="text-lg font-bold text-toss-grey600 mb-2">지식을 탐험하세요</h3>
+                                    <p className="text-sm max-w-sm">목록에서 코스, 챕터, 혹은 강의를 선택하여 내용을 확인해보세요.</p>
+                                </div>
+                            ) : (
+                                <div className="flex flex-col h-full animate-fade-in">
+                                    <div className="p-6 border-b border-toss-grey100 flex items-start gap-4">
+                                        <button onClick={() => setSelectedNode(null)} className="md:hidden mt-1 p-1 -ml-2 rounded-full hover:bg-toss-grey100 text-toss-grey600"><Icons.ChevronLeft size={24} /></button>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2 text-xs font-bold text-toss-blue uppercase tracking-wide mb-2">
+                                                {selectedNode.type === 'lecture' && 'LECTURE NOTE'}
+                                                {selectedNode.type === 'chapter' && 'CHAPTER OVERVIEW'}
+                                                {selectedNode.type === 'course' && 'COURSE INTRO'}
+                                            </div>
+                                            <h2 className="text-xl md:text-2xl font-bold text-toss-black leading-tight line-clamp-2">{selectedNode.data.title}</h2>
+                                            {selectedNode.type === 'lecture' && (
+                                                <div className="flex items-center gap-2 mt-2 text-sm text-toss-grey500"><span>{selectedNode.parentCourse?.instructor}</span><span>•</span><span>{selectedNode.data.duration}</span></div>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div className="flex-1 overflow-y-auto custom-scroll p-6 bg-toss-bg/30">
+                                        {selectedNode.type === 'lecture' ? (
+                                            <div className="max-w-3xl mx-auto">
+                                                <div className="bg-white rounded-2xl shadow-sm border border-toss-grey200 mb-6 overflow-hidden focus-within:ring-1 focus-within:ring-toss-blue transition-all">
+                                                    <div className="px-6 py-4 border-b border-toss-grey100 bg-toss-grey100/30 flex items-center justify-between">
+                                                        <h4 className="font-bold text-toss-grey800 text-sm flex items-center gap-2"><Icons.Edit3 size={16}/>나만의 노트</h4>
+                                                        <button onClick={handleSaveInLibrary} className={`text-xs font-bold px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${isSaving ? 'bg-toss-blue text-white' : 'bg-white text-toss-grey700 hover:bg-toss-grey50 border border-toss-grey200 shadow-sm'}`}>{isSaving ? <Icons.Check size={14}/> : <Icons.Save size={14}/>}{isSaving ? '저장됨' : '저장'}</button>
+                                                    </div>
+                                                    <textarea value={editContent} onChange={(e) => setEditContent(e.target.value)} className="w-full h-64 p-6 resize-none focus:outline-none bg-white text-toss-grey800 leading-relaxed placeholder-toss-grey300" placeholder="여기에 자유롭게 노트를 작성하세요." spellCheck="false"></textarea>
+                                                </div>
+                                                <button onClick={() => onPlayLecture(selectedNode.data, selectedNode.parentCourse)} className="w-full py-4 bg-toss-blue text-white rounded-2xl font-bold hover:bg-blue-600 transition-all shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2"><Icons.Play size={20} fill="currentColor"/><span>강의 바로 재생하기</span></button>
+                                            </div>
+                                        ) : (
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                {selectedNode.type === 'course' && selectedNode.data.chapters.map((ch, i) => (
+                                                    <div key={i} onClick={() => handleSelect('chapter', ch, selectedNode.data)} className="bg-white p-5 rounded-xl border border-toss-grey200 hover:border-toss-blue hover:shadow-md cursor-pointer transition-all">
+                                                        <div className="text-xs font-bold text-toss-grey400 mb-1">Chapter {i}</div>
+                                                        <div className="font-bold text-toss-black">{ch.title}</div>
+                                                        <div className="text-xs text-toss-grey500 mt-2">{ch.lectures.length} lectures</div>
+                                                    </div>
+                                                ))}
+                                                {selectedNode.type === 'chapter' && selectedNode.data.lectures.map((l, i) => {
+                                                    const hasLectureNote = hasNote(l.videoId);
+                                                    return (
+                                                        <div key={i} onClick={() => handleSelect('lecture', l, selectedNode.parentCourse)} className="bg-white p-5 rounded-xl border border-toss-grey200 hover:border-toss-blue hover:shadow-md cursor-pointer transition-all relative overflow-hidden">
+                                                            {hasLectureNote && <div className="absolute top-0 right-0 bg-green-500 p-1 rounded-bl-lg"><Icons.Check size={12} className="text-white"/></div>}
+                                                            <div className="flex justify-between items-start"><div className="font-bold text-toss-black text-sm mb-1 line-clamp-2">{l.title}</div><div className="text-[10px] bg-toss-grey100 px-1.5 py-0.5 rounded text-toss-grey600 shrink-0">{l.duration}</div></div>
+                                                            <div className="text-xs text-toss-blue mt-2 font-medium flex items-center gap-1">노트 보기 <Icons.ChevronRight size={12}/></div>
+                                                        </div>
+                                                    )
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                );
+            };
+
+            const EssenceView = ({ capturedChannelsLoading }) => {
+                const [filter, setFilter] = useState('all');
+                const filteredChannels = useMemo(() => {
+                    if(filter === 'all') return ESSENCE_DATA.channels;
+                    return ESSENCE_DATA.channels.filter(c => c.category === filter);
+                }, [filter]);
+                const handleChannelClick = (url) => { window.open(url, '_blank'); };
+    
+                return (
+                    <div className="max-w-7xl mx-auto px-4 md:px-8 pb-12 animate-fade-in min-h-[80vh]">
+                         <div className="mb-8"><h2 className="text-3xl font-bold text-toss-black mb-2">본질 강화</h2><p className="text-toss-grey600">알고리즘의 방해 없이, 오직 성장에만 집중하세요.</p></div>
+                        <div className="mb-8 overflow-x-auto scrollbar-hide pb-2">
+                            <div className="flex gap-2 min-w-max">
+                                {ESSENCE_DATA.categories.map(cat => (
+                                    <button key={cat.id} onClick={() => setFilter(cat.id)} className={`px-4 py-2 rounded-full text-sm font-semibold transition-all border ${filter === cat.id ? 'bg-toss-black text-white border-toss-black shadow-lg' : 'bg-white text-toss-grey600 border-toss-grey200 hover:bg-toss-grey100'}`}>{cat.name}</button>
+                                ))}
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                            {filteredChannels.map((channel, idx) => {
+                                const catInfo = getCategoryInfo(channel.category);
+                                return (
+                                    <div key={idx} onClick={() => handleChannelClick(channel.url)} className="bg-white rounded-2xl p-6 border border-toss-grey200 hover:border-red-500/30 hover:shadow-lg transition-all cursor-pointer group flex flex-col h-full animate-slide-up" style={{animationDelay: `${idx * 0.05}s`}}>
+                                        <div className="flex justify-between items-start mb-4"><span className={`text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-wide ${catInfo?.color || 'bg-gray-100 text-gray-600'}`}>{catInfo?.name}</span><div className="text-toss-grey300 group-hover:text-red-500 transition-colors"><Icons.Youtube size={24} /></div></div>
+                                        <h3 className="text-lg font-bold text-toss-black mb-2 group-hover:text-red-600 transition-colors">{channel.title}</h3>
+                                        <p className="text-sm text-toss-grey500 leading-relaxed flex-1">{channel.desc}</p>
+                                        <div className="mt-4 pt-4 border-t border-toss-grey100 flex items-center justify-between text-xs font-semibold text-toss-grey400 group-hover:text-red-500 transition-colors"><span>Youtube 채널 이동</span><Icons.ExternalLink size={14} /></div>
+                                    </div>
+                                )
+                            })}
+                        </div>
+                    </div>
+                );
+            };
+
             return (
                 <div className="min-h-screen pb-20 bg-toss-bg relative">
                     
-                    {/* Floating Action Button for Slot Machine */}
                     {currentTab === 'HOME' && !showSlotMachine && (
-                        <button 
-                            onClick={() => setShowSlotMachine(true)}
-                            className="fixed bottom-24 right-6 z-40 w-14 h-14 bg-toss-black text-white rounded-full shadow-floating flex items-center justify-center hover:scale-110 transition-transform duration-300 group"
-                            title="오늘은 무엇을 공부할까요?"
-                        >
+                        <button onClick={() => setShowSlotMachine(true)} className="fixed bottom-24 right-6 z-40 w-14 h-14 bg-toss-black text-white rounded-full shadow-floating flex items-center justify-center hover:scale-110 transition-transform duration-300 group" title="오늘은 무엇을 공부할까요?">
                             <Icons.Zap size={24} className="group-hover:text-yellow-300 transition-colors" />
                         </button>
                     )}
 
-                    {/* Floating Action Button for Capture Modal (NEW) */}
                     {currentTab === 'ESSENCE' && (
-                        <button 
-                            onClick={() => setShowCaptureModal(true)}
-                            className="fixed bottom-6 right-6 z-50 w-14 h-14 bg-toss-blue text-white rounded-full shadow-floating flex items-center justify-center hover:scale-110 transition-transform duration-300 group md:bottom-6"
-                            title="새 채널 캡쳐하기"
-                        >
+                        <button onClick={() => setShowCaptureModal(true)} className="fixed bottom-6 right-6 z-50 w-14 h-14 bg-toss-blue text-white rounded-full shadow-floating flex items-center justify-center hover:scale-110 transition-transform duration-300 group md:bottom-6" title="새 채널 캡쳐하기">
                             <Icons.Plus size={24} className="group-hover:rotate-90 transition-transform duration-300" />
-                            {capturedChannels.length > 0 && (
-                                <span className="absolute -top-1 -right-1 w-5 h-5 bg-yellow-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white">{capturedChannels.length}</span>
-                            )}
+                            {capturedChannels.length > 0 && <span className="absolute -top-1 -right-1 w-5 h-5 bg-yellow-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white">{capturedChannels.length}</span>}
                         </button>
                     )}
 
-                    {/* Slot Machine Popup */}
-                    {showSlotMachine && (
-                        <KnowledgeSlotMachine 
-                            courses={COURSES} 
-                            onRecommend={handleRecommendation} 
-                            onClose={() => setShowSlotMachine(false)}
-                        />
-                    )}
+                    {showSlotMachine && <KnowledgeSlotMachine courses={COURSES} onRecommend={handleRecommendation} onClose={() => setShowSlotMachine(false)} />}
 
                     <nav className="sticky top-0 z-30 bg-toss-bg/80 backdrop-blur-lg border-b border-toss-grey200 transition-all">
                         <div className="max-w-7xl mx-auto px-4 md:px-8 h-16 flex items-center justify-between">
                             <div className="flex items-center gap-8">
                                 <div className="flex items-center gap-2 cursor-pointer" onClick={() => window.location.reload()}>
-                                    <div className="w-8 h-8 bg-toss-blue rounded-lg flex items-center justify-center">
-                                        <span className="text-white font-bold text-sm">J&J</span>
-                                    </div>
+                                    <div className="w-8 h-8 bg-toss-blue rounded-lg flex items-center justify-center"><span className="text-white font-bold text-sm">J&J</span></div>
                                     <span className="text-lg font-bold text-toss-black tracking-tight hidden md:block">Archive</span>
                                 </div>
-
                                 <div className="hidden md:flex bg-toss-grey200/50 p-1 rounded-xl">
-                                    <button 
-                                        onClick={() => setCurrentTab('HOME')}
-                                        className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${currentTab === 'HOME' ? 'bg-white text-toss-blue shadow-sm' : 'text-toss-grey600 hover:text-toss-grey900'}`}
-                                    >
-                                        홈
-                                    </button>
-                                    <button 
-                                        onClick={() => setCurrentTab('GRIMOIRE')}
-                                        className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all flex items-center gap-1.5 ${currentTab === 'GRIMOIRE' ? 'bg-white text-toss-blue shadow-sm' : 'text-toss-grey600 hover:text-toss-grey900'}`}
-                                    >
-                                        <Icons.Book size={14}/>
-                                        나의 서재
-                                    </button>
-                                    <button 
-                                        onClick={() => setCurrentTab('ESSENCE')}
-                                        className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all flex items-center gap-1.5 ${currentTab === 'ESSENCE' ? 'bg-white text-toss-blue shadow-sm' : 'text-toss-grey600 hover:text-toss-grey900'}`}
-                                    >
-                                        <Icons.Filter size={14}/>
-                                        본질강화
-                                    </button>
+                                    <button onClick={() => setCurrentTab('HOME')} className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${currentTab === 'HOME' ? 'bg-white text-toss-blue shadow-sm' : 'text-toss-grey600 hover:text-toss-grey900'}`}>홈</button>
+                                    <button onClick={() => setCurrentTab('GRIMOIRE')} className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all flex items-center gap-1.5 ${currentTab === 'GRIMOIRE' ? 'bg-white text-toss-blue shadow-sm' : 'text-toss-grey600 hover:text-toss-grey900'}`}><Icons.Book size={14}/>나의 서재</button>
+                                    <button onClick={() => setCurrentTab('ESSENCE')} className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all flex items-center gap-1.5 ${currentTab === 'ESSENCE' ? 'bg-white text-toss-blue shadow-sm' : 'text-toss-grey600 hover:text-toss-grey900'}`}><Icons.Filter size={14}/>본질강화</button>
                                 </div>
                             </div>
-                            
                             <div className="flex items-center gap-4">
-                                <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-white rounded-full border border-toss-grey200 shadow-sm">
-                                    <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                                    <span className="text-xs font-medium text-toss-grey700">{user.email}</span>
-                                </div>
-                                <button 
-                                    onClick={onLogout}
-                                    className="p-2 text-toss-grey600 hover:bg-toss-grey200 rounded-full transition-colors"
-                                    title="로그아웃"
-                                >
-                                    <Icons.LogOut size={20} />
-                                </button>
+                                <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-white rounded-full border border-toss-grey200 shadow-sm"><div className="w-2 h-2 rounded-full bg-green-500"></div><span className="text-xs font-medium text-toss-grey700">{user.email}</span></div>
+                                <button onClick={onLogout} className="p-2 text-toss-grey600 hover:bg-toss-grey200 rounded-full transition-colors" title="로그아웃"><Icons.LogOut size={20} /></button>
                             </div>
                         </div>
                     </nav>
 
                     <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-toss-grey200 p-2 z-40 flex justify-around">
-                        <button onClick={() => setCurrentTab('HOME')} className={`flex flex-col items-center p-2 ${currentTab === 'HOME' ? 'text-toss-blue' : 'text-toss-grey400'}`}>
-                            <Icons.Layout size={20} />
-                            <span className="text-[10px] font-bold mt-1">홈</span>
-                        </button>
-                        <button onClick={() => setCurrentTab('GRIMOIRE')} className={`flex flex-col items-center p-2 ${currentTab === 'GRIMOIRE' ? 'text-toss-blue' : 'text-toss-grey400'}`}>
-                            <Icons.Book size={20} />
-                            <span className="text-[10px] font-bold mt-1">나의 서재</span>
-                        </button>
-                        <button onClick={() => setCurrentTab('ESSENCE')} className={`flex flex-col items-center p-2 ${currentTab === 'ESSENCE' ? 'text-toss-blue' : 'text-toss-grey400'}`}>
-                            <Icons.Filter size={20} />
-                            <span className="text-[10px] font-bold mt-1">본질강화</span>
-                        </button>
+                        <button onClick={() => setCurrentTab('HOME')} className={`flex flex-col items-center p-2 ${currentTab === 'HOME' ? 'text-toss-blue' : 'text-toss-grey400'}`}><Icons.Layout size={20} /><span className="text-[10px] font-bold mt-1">홈</span></button>
+                        <button onClick={() => setCurrentTab('GRIMOIRE')} className={`flex flex-col items-center p-2 ${currentTab === 'GRIMOIRE' ? 'text-toss-blue' : 'text-toss-grey400'}`}><Icons.Book size={20} /><span className="text-[10px] font-bold mt-1">나의 서재</span></button>
+                        <button onClick={() => setCurrentTab('ESSENCE')} className={`flex flex-col items-center p-2 ${currentTab === 'ESSENCE' ? 'text-toss-blue' : 'text-toss-grey400'}`}><Icons.Filter size={20} /><span className="text-[10px] font-bold mt-1">본질강화</span></button>
                     </div>
 
                     {currentTab === 'HOME' ? (
                         <>
                             <header className="max-w-7xl mx-auto px-4 md:px-8 py-8 md:py-12 animate-slide-up">
-                                <h1 className="text-3xl md:text-5xl font-bold text-toss-black mb-4 leading-tight">
-                                    {getGreeting()}, {getUserName(user.email)}님.<br/>
-                                    <span className="text-toss-grey400">오늘은 어떤 인사이트가 필요하신가요?</span>
-                                </h1>
-                                
-                                {/* Search Bar */}
+                                <h1 className="text-3xl md:text-5xl font-bold text-toss-black mb-4 leading-tight">{getGreeting()}, {getUserName(user.email)}님.<br/><span className="text-toss-grey400">오늘은 어떤 인사이트가 필요하신가요?</span></h1>
                                 <div className="max-w-2xl relative mt-8 group">
-                                    <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
-                                        <Icons.Search className="text-toss-grey400 group-focus-within:text-toss-blue transition-colors" />
-                                    </div>
-                                    <input 
-                                        type="text" 
-                                        value={searchQuery}
-                                        onChange={(e) => setSearchQuery(e.target.value)}
-                                        placeholder="강의 제목이나 키워드를 검색해보세요 (예: 이론, 법, 돈...)" 
-                                        className="w-full pl-12 pr-4 py-4 bg-white border border-toss-grey200 rounded-2xl text-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-toss-blue/20 focus:border-toss-blue transition-all"
-                                    />
+                                    <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none"><Icons.Search className="text-toss-grey400 group-focus-within:text-toss-blue transition-colors" /></div>
+                                    <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="강의 제목이나 키워드를 검색해보세요 (예: 이론, 법, 돈...)" className="w-full pl-12 pr-4 py-4 bg-white border border-toss-grey200 rounded-2xl text-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-toss-blue/20 focus:border-toss-blue transition-all"/>
                                 </div>
                             </header>
-
-                            {/* Main Content Area */}
                             <div className="max-w-7xl mx-auto px-4 md:px-8 pb-20">
                                 {searchQuery ? (
-                                    /* Search Results View */
                                     <div className="animate-fade-in">
-                                        <h3 className="text-lg font-bold text-toss-black mb-6 flex items-center gap-2">
-                                            <Icons.Search size={20} />
-                                            <span>'{searchQuery}' 검색 결과 ({searchResults.length}개)</span>
-                                        </h3>
-                                        
+                                        <h3 className="text-lg font-bold text-toss-black mb-6 flex items-center gap-2"><Icons.Search size={20} /><span>'{searchQuery}' 검색 결과 ({searchResults.length}개)</span></h3>
                                         {searchResults.length > 0 ? (
                                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                                 {searchResults.map((result, idx) => (
-                                                    <div 
-                                                        key={idx} 
-                                                        onClick={() => handlePlayFromSearch(result)}
-                                                        className="bg-white p-5 rounded-2xl border border-toss-grey200 hover:border-toss-blue hover:shadow-lg transition-all cursor-pointer group"
-                                                    >
-                                                        <div className="text-[10px] font-bold text-toss-grey500 uppercase mb-2 flex items-center gap-1">
-                                                            <span className="bg-toss-grey100 px-1.5 py-0.5 rounded">{result.course.title}</span>
-                                                            <Icons.ChevronRight size={10} />
-                                                            <span>{result.chapterTitle}</span>
-                                                        </div>
-                                                        <h4 className="font-bold text-toss-black text-lg mb-2 group-hover:text-toss-blue transition-colors line-clamp-2">
-                                                            {result.lecture.title}
-                                                        </h4>
-                                                        <div className="flex items-center gap-2 text-xs text-toss-grey500 mt-3">
-                                                            <Icons.Play size={12} />
-                                                            <span>{result.lecture.duration}</span>
-                                                        </div>
+                                                    <div key={idx} onClick={() => handlePlayFromSearch(result)} className="bg-white p-5 rounded-2xl border border-toss-grey200 hover:border-toss-blue hover:shadow-lg transition-all cursor-pointer group">
+                                                        <div className="text-[10px] font-bold text-toss-grey500 uppercase mb-2 flex items-center gap-1"><span className="bg-toss-grey100 px-1.5 py-0.5 rounded">{result.course.title}</span><Icons.ChevronRight size={10} /><span>{result.chapterTitle}</span></div>
+                                                        <h4 className="font-bold text-toss-black text-lg mb-2 group-hover:text-toss-blue transition-colors line-clamp-2">{result.lecture.title}</h4>
+                                                        <div className="flex items-center gap-2 text-xs text-toss-grey500 mt-3"><Icons.Play size={12} /><span>{result.lecture.duration}</span></div>
                                                     </div>
                                                 ))}
                                             </div>
                                         ) : (
-                                            <div className="text-center py-20 text-toss-grey500 bg-white rounded-2xl border border-toss-grey200 border-dashed">
-                                                <p>검색 결과가 없습니다.</p>
-                                            </div>
+                                            <div className="text-center py-20 text-toss-grey500 bg-white rounded-2xl border border-toss-grey200 border-dashed"><p>검색 결과가 없습니다.</p></div>
                                         )}
                                     </div>
                                 ) : (
-                                    /* Default Course List View */
                                     <div className="animate-slide-up" style={{animationDelay: '0.1s'}}>
                                         <div className="mb-8 overflow-x-auto scrollbar-hide">
                                             <div className="flex gap-2 min-w-max">
-                                                <button 
-                                                    onClick={() => setSelectedCategory('ALL')}
-                                                    className={`px-5 py-2.5 rounded-full text-sm font-semibold transition-all ${
-                                                        selectedCategory === 'ALL' 
-                                                        ? 'bg-toss-black text-white shadow-lg' 
-                                                        : 'bg-white text-toss-grey600 hover:bg-toss-grey100 border border-toss-grey200'
-                                                    }`}
-                                                >
-                                                    전체 보기
-                                                </button>
+                                                <button onClick={() => setSelectedCategory('ALL')} className={`px-5 py-2.5 rounded-full text-sm font-semibold transition-all ${selectedCategory === 'ALL' ? 'bg-toss-black text-white shadow-lg' : 'bg-white text-toss-grey600 hover:bg-toss-grey100 border border-toss-grey200'}`}>전체 보기</button>
                                                 {Object.values(CATEGORIES).map(cat => (
-                                                    <button 
-                                                        key={cat.id}
-                                                        onClick={() => setSelectedCategory(cat.id)}
-                                                        className={`px-5 py-2.5 rounded-full text-sm font-semibold transition-all ${
-                                                            selectedCategory === cat.id 
-                                                            ? 'bg-toss-blue text-white shadow-lg shadow-blue-500/30' 
-                                                            : 'bg-white text-toss-grey600 hover:bg-toss-grey100 border border-toss-grey200'
-                                                        }`}
-                                                    >
-                                                        {cat.name}
-                                                    </button>
+                                                    <button key={cat.id} onClick={() => setSelectedCategory(cat.id)} className={`px-5 py-2.5 rounded-full text-sm font-semibold transition-all ${selectedCategory === cat.id ? 'bg-toss-blue text-white shadow-lg shadow-blue-500/30' : 'bg-white text-toss-grey600 hover:bg-toss-grey100 border border-toss-grey200'}`}>{cat.name}</button>
                                                 ))}
                                             </div>
                                         </div>
-
                                         <main className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                                             {filteredCourses.map(course => (
-                                                <CourseCard 
-                                                    key={course.id} 
-                                                    course={course}
-                                                    notes={userNotes} 
-                                                    onClick={(c) => { setSelectedCourse(c); setRecommendedLecture(null); }} 
-                                                />
+                                                <CourseCard key={course.id} course={course} notes={userNotes} onClick={(c) => { setSelectedCourse(c); setRecommendedLecture(null); }} />
                                             ))}
                                         </main>
                                     </div>
@@ -1635,73 +1404,35 @@
                             </div>
                         </>
                     ) : currentTab === 'GRIMOIRE' ? (
-                        <div className="pt-8">
-                            <MyLibrary 
-                                courses={COURSES} 
-                                notes={userNotes}
-                                onSaveNote={handleSaveNote}
-                                onPlayLecture={handlePlayFromGrimoire} 
-                            />
-                        </div>
+                        <div className="pt-8"><MyLibrary courses={COURSES} notes={userNotes} onSaveNote={handleSaveNote} onPlayLecture={handlePlayFromGrimoire} /></div>
                     ) : (
-                        <div className="pt-8">
-                            <EssenceView capturedChannelsLoading={capturedChannelsLoading} />
-                        </div>
+                        <div className="pt-8"><EssenceView capturedChannelsLoading={capturedChannelsLoading} /></div>
                     )}
 
-                    {selectedCourse && (
-                        <LecturePlayer 
-                            course={selectedCourse}
-                            initialLecture={recommendedLecture}
-                            notes={userNotes}
-                            onSaveNote={handleSaveNote}
-                            onClose={() => { setSelectedCourse(null); setRecommendedLecture(null); }} 
-                        />
-                    )}
-
+                    {selectedCourse && <LecturePlayer course={selectedCourse} initialLecture={recommendedLecture} notes={userNotes} onSaveNote={handleSaveNote} onClose={() => { setSelectedCourse(null); setRecommendedLecture(null); }} />}
+                    
                     {showCaptureModal && (
                         <CaptureModal
                             categories={ESSENCE_DATA.categories}
                             onSave={handleSaveCapturedChannel}
-                            channels={capturedChannels} // Pass Firebase data to modal
-                            getCategoryInfo={getCategoryInfo} // Pass helper function
+                            channels={capturedChannels} 
+                            getCategoryInfo={getCategoryInfo}
                             onClose={() => setShowCaptureModal(false)}
+                            onRemove={handleRemoveCapturedChannel}
+                            onUpdate={handleUpdateCapturedChannel}
                         />
                     )}
 
                     {currentTab === 'HOME' && (
                         <footer className="max-w-7xl mx-auto px-4 md:px-8 mt-32 border-t border-toss-grey200 py-12 animate-fade-in">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-                                <div>
-                                    <h5 className="font-bold text-toss-grey800 text-sm mb-3">J&J Archive</h5>
-                                    <p className="text-toss-grey500 text-xs leading-relaxed">
-                                        서로의 성장을 돕기 위해 구축한<br/>
-                                        세상에서 가장 안전하고 프라이빗한 디지털 서재
-                                    </p>
-                                </div>
-                                <div className="flex flex-wrap gap-x-6 gap-y-2 text-xs text-toss-grey600">
-                                    <span className="cursor-pointer hover:text-toss-blue transition-colors">서비스 이용약관</span>
-                                    <span className="cursor-pointer hover:text-toss-blue font-bold transition-colors">개인정보처리방침</span>
-                                    <span className="cursor-pointer hover:text-toss-blue transition-colors">고객센터</span>
-                                </div>
+                                <div><h5 className="font-bold text-toss-grey800 text-sm mb-3">J&J Archive</h5><p className="text-toss-grey500 text-xs leading-relaxed">서로의 성장을 돕기 위해 구축한<br/>세상에서 가장 안전하고 프라이빗한 디지털 서재</p></div>
+                                <div className="flex flex-wrap gap-x-6 gap-y-2 text-xs text-toss-grey600"><span className="cursor-pointer hover:text-toss-blue transition-colors">서비스 이용약관</span><span className="cursor-pointer hover:text-toss-blue font-bold transition-colors">개인정보처리방침</span><span className="cursor-pointer hover:text-toss-blue transition-colors">고객센터</span></div>
                             </div>
-
                             <div className="text-[11px] text-toss-grey400 leading-relaxed font-normal">
-                                <p className="mb-1 flex flex-wrap gap-2">
-                                    <span><strong className="text-toss-grey600 font-medium">상호명:</strong> 마지막케팅 & 텐밀리플러스</span>
-                                    <span className="hidden sm:inline text-toss-grey300">|</span>
-                                    <span><strong className="text-toss-grey600 font-medium">대표자:</strong> 김지후, 최재영</span>
-                                </p>
-                                <p className="mb-1 flex flex-wrap gap-2">
-                                    <span>사업자등록번호: 2005-513-0420</span>
-                                    <span className="hidden sm:inline text-toss-grey300">|</span>
-                                    <span>통신판매업신고: 제 2025-서울강남-00123호</span>
-                                </p>
-                                <p className="mb-4 flex flex-wrap gap-2">
-                                    <span>주소: 서울특별시 강남구 테헤란로 (Private Office)</span>
-                                    <span className="hidden sm:inline text-toss-grey300">|</span>
-                                    <span>이메일: choijihoon9988@gmail.com, jihoo0420@gmail.com</span>
-                                </p>
+                                <p className="mb-1 flex flex-wrap gap-2"><span><strong className="text-toss-grey600 font-medium">상호명:</strong> 마지막케팅 & 텐밀리플러스</span><span className="hidden sm:inline text-toss-grey300">|</span><span><strong className="text-toss-grey600 font-medium">대표자:</strong> 김지후, 최재영</span></p>
+                                <p className="mb-1 flex flex-wrap gap-2"><span>사업자등록번호: 2005-513-0420</span><span className="hidden sm:inline text-toss-grey300">|</span><span>통신판매업신고: 제 2025-서울강남-00123호</span></p>
+                                <p className="mb-4 flex flex-wrap gap-2"><span>주소: 서울특별시 강남구 테헤란로 (Private Office)</span><span className="hidden sm:inline text-toss-grey300">|</span><span>이메일: choijihoon9988@gmail.com, jihoo0420@gmail.com</span></p>
                                 <p className="opacity-70">© 2025 J&J Archive. All rights reserved.</p>
                             </div>
                         </footer>
@@ -1715,7 +1446,6 @@
             const [loading, setLoading] = useState(true);
 
             useEffect(() => {
-                // Wait for firebaseAuth to be available
                 const checkAuth = setInterval(() => {
                     if (window.firebaseAuth) {
                         clearInterval(checkAuth);
@@ -1727,7 +1457,6 @@
                         return () => unsubscribe();
                     }
                 }, 100);
-
                 return () => clearInterval(checkAuth);
             }, []);
 
