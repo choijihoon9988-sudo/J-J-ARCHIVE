@@ -1288,7 +1288,7 @@
     
                 return (
                     <div className="max-w-7xl mx-auto px-4 md:px-8 pb-12 animate-fade-in min-h-[80vh]">
-                         <div className="mb-8"><h2 className="text-3xl font-bold text-toss-black mb-2">본질 강화</h2><p className="text-toss-grey600">알고리즘의 방해 없이, 오직 성장에만 집중하세요.</p></div>
+                         <div className="mb-8"><h2 className="text-3xl font-bold text-toss-black mb-2">지식 강화</h2><p className="text-toss-grey600">알고리즘의 방해 없이, 오직 성장에만 집중하세요.</p></div>
                         <div className="mb-8 overflow-x-auto scrollbar-hide pb-2">
                             <div className="flex gap-2 min-w-max">
                                 {ESSENCE_DATA.categories.map(cat => (
@@ -1341,7 +1341,7 @@
                                 <div className="hidden md:flex bg-toss-grey200/50 p-1 rounded-xl">
                                     <button onClick={() => setCurrentTab('HOME')} className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${currentTab === 'HOME' ? 'bg-white text-toss-blue shadow-sm' : 'text-toss-grey600 hover:text-toss-grey900'}`}>홈</button>
                                     <button onClick={() => setCurrentTab('GRIMOIRE')} className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all flex items-center gap-1.5 ${currentTab === 'GRIMOIRE' ? 'bg-white text-toss-blue shadow-sm' : 'text-toss-grey600 hover:text-toss-grey900'}`}><Icons.Book size={14}/>나의 서재</button>
-                                    <button onClick={() => setCurrentTab('ESSENCE')} className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all flex items-center gap-1.5 ${currentTab === 'ESSENCE' ? 'bg-white text-toss-blue shadow-sm' : 'text-toss-grey600 hover:text-toss-grey900'}`}><Icons.Filter size={14}/>본질강화</button>
+                                    <button onClick={() => setCurrentTab('ESSENCE')} className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all flex items-center gap-1.5 ${currentTab === 'ESSENCE' ? 'bg-white text-toss-blue shadow-sm' : 'text-toss-grey600 hover:text-toss-grey900'}`}><Icons.Filter size={14}/>지식 강화</button>
                                 </div>
                             </div>
                             <div className="flex items-center gap-4">
@@ -1354,7 +1354,7 @@
                     <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-toss-grey200 p-2 z-40 flex justify-around">
                         <button onClick={() => setCurrentTab('HOME')} className={`flex flex-col items-center p-2 ${currentTab === 'HOME' ? 'text-toss-blue' : 'text-toss-grey400'}`}><Icons.Layout size={20} /><span className="text-[10px] font-bold mt-1">홈</span></button>
                         <button onClick={() => setCurrentTab('GRIMOIRE')} className={`flex flex-col items-center p-2 ${currentTab === 'GRIMOIRE' ? 'text-toss-blue' : 'text-toss-grey400'}`}><Icons.Book size={20} /><span className="text-[10px] font-bold mt-1">나의 서재</span></button>
-                        <button onClick={() => setCurrentTab('ESSENCE')} className={`flex flex-col items-center p-2 ${currentTab === 'ESSENCE' ? 'text-toss-blue' : 'text-toss-grey400'}`}><Icons.Filter size={20} /><span className="text-[10px] font-bold mt-1">본질강화</span></button>
+                        <button onClick={() => setCurrentTab('ESSENCE')} className={`flex flex-col items-center p-2 ${currentTab === 'ESSENCE' ? 'text-toss-blue' : 'text-toss-grey400'}`}><Icons.Filter size={20} /><span className="text-[10px] font-bold mt-1">지식강화</span></button>
                     </div>
 
                     {currentTab === 'HOME' ? (

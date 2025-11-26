@@ -24,6 +24,7 @@ window.ESSENCE_DATA = {
 
         // AI / 테크
         { title: "AI 겸임교수 이종범", category: "tech", url: "https://www.youtube.com/@aiadjunct", desc: "실전 AI 활용과 프롬프트 엔지니어링" },
+        { title: "조코딩", category: "tech", url: "https://www.youtube.com/@jocoding", desc: "쉽게 배우는 프로그래밍 및 AI 활용법" },
 
         // 지식 라디오
         { title: "지식의 취향", category: "radio", url: "https://www.youtube.com/@지식의취향", desc: "편안하게 듣기 좋은 교양 라디오" },
