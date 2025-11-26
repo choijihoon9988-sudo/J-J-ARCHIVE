@@ -124,7 +124,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
         import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
         // Firebase Realtime Database imports
-        import { getDatabase, ref, push, onValue } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
+        import { getDatabase, ref, push, onValue, set } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyAxay6-q869MxmJopDtogmT6A4vfXWtlEg",
@@ -141,7 +141,7 @@
         const db = getDatabase(app);
 
         window.firebaseAuth = { auth, provider, signInWithPopup, signOut, onAuthStateChanged };
-        window.firebaseDB = { db, ref, push, onValue };
+        window.firebaseDB = { db, ref, push, onValue, set };
     </script>
 
     <script type="text/babel">
@@ -1288,24 +1288,48 @@
             // Firebase Hook for Captured Channels (Request 3)
             const { channels: capturedChannels, loading: capturedChannelsLoading, saveChannel: handleSaveCapturedChannel } = useCapturedChannels(user?.uid);
 
-            // Global Note State (Still using localStorage as no request to change it)
-            const [userNotes, setUserNotes] = useState(() => {
-                try {
-                    const saved = localStorage.getItem('jnj_notes');
-                    return saved ? JSON.parse(saved) : {};
-                } catch (e) {
-                    console.error("Failed to load notes", e);
-                    return {};
-                }
-            });
+            // Global Note State (SYNCED WITH FIREBASE NOW)
+            const [userNotes, setUserNotes] = useState({}); // 초기값을 빈 객체로 변경
 
+            // Firebase 실시간 동기화 (Listen)
+            useEffect(() => {
+                if (!user?.uid || !window.firebaseDB) return;
+                
+                const { db, ref, onValue } = window.firebaseDB;
+                // 사용자별 고유 경로 설정 (특수문자 제거)
+                const sanitizedUid = user.uid.replace(/[.#$/[\]]/g, '_');
+                const notesRef = ref(db, `notes/${sanitizedUid}`);
+
+                const unsubscribe = onValue(notesRef, (snapshot) => {
+                    const data = snapshot.val();
+                    setUserNotes(data || {}); // 데이터가 없으면 빈 객체
+                }, (error) => {
+                    console.error("Notes sync error:", error);
+                });
+
+                return () => unsubscribe();
+            }, [user]);
 
             const handleSaveNote = (videoId, content) => {
-                setUserNotes(prev => {
-                    const newNotes = { ...prev, [videoId]: content };
-                    localStorage.setItem('jnj_notes', JSON.stringify(newNotes));
-                    return newNotes;
-                });
+                if (!user?.uid || !window.firebaseDB) {
+                    alert("데이터베이스 연결 실패. 잠시 후 다시 시도해주세요.");
+                    return;
+                }
+
+                const { db, ref, set } = window.firebaseDB;
+                const sanitizedUid = user.uid.replace(/[.#$/[\]]/g, '_');
+                const noteRef = ref(db, `notes/${sanitizedUid}/${videoId}`);
+
+                // Firebase에 데이터 저장 (set은 덮어쓰기)
+                set(noteRef, content)
+                    .then(() => {
+                        // 성공 시 별도 작업 불필요 (onValue가 상태 업데이트 함)
+                        // console.log("Note saved to cloud");
+                    })
+                    .catch((error) => {
+                        console.error("Note save failed:", error);
+                        alert("노트 저장에 실패했습니다.");
+                    });
             };
 
             const filteredCourses = useMemo(() => {
