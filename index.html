@@ -201,6 +201,15 @@
         const ESSENCE_DATA = window.ESSENCE_DATA || { categories: [], channels: [] };
 
         // --- Utils ---
+        
+        // [FIX] Firebase Key Sanitizer
+        // Firebase 키에는 '.', '#', '$', '[', ']', '/' 등의 문자를 포함할 수 없습니다.
+        // YouTube URL 등을 키로 사용할 때 반드시 이 함수를 통해 변환해야 합니다.
+        const sanitizeKey = (key) => {
+            if (!key) return 'unknown';
+            return key.replace(/[.#$/[\]]/g, '_');
+        };
+
         const calculateProgress = (course, notes) => {
             let totalLectures = 0;
             let writtenNotes = 0;
@@ -208,7 +217,9 @@
             course.chapters.forEach(chapter => {
                 chapter.lectures.forEach(lecture => {
                     totalLectures++;
-                    if (notes[lecture.videoId] && notes[lecture.videoId].trim().length > 0) {
+                    // [FIX] Check using sanitized key
+                    const key = sanitizeKey(lecture.videoId);
+                    if (notes[key] && notes[key].trim().length > 0) {
                         writtenNotes++;
                     }
                 });
@@ -221,7 +232,7 @@
             };
         };
         
-        // --- Custom Hook for Firebase Captured Channels (FIXED) ---
+        // --- Custom Hook for Firebase Captured Channels ---
         const useCapturedChannels = (userId) => {
             const [channels, setChannels] = useState([]);
             const [loading, setLoading] = useState(true);
@@ -233,37 +244,35 @@
                     return;
                 }
 
-                // FIX: Infinite loading fix by polling for firebaseDB availability
                 let unsubscribe;
                 const checkFirebase = setInterval(() => {
                     if (window.firebaseDB) {
                         clearInterval(checkFirebase);
                         const { db, ref, onValue } = window.firebaseDB;
-                        // Use a database path specific to the user for privacy (e.g., 'captured_channels/user_uid')
-                        const channelsRef = ref(db, `captured_channels/${userId.replace(/[.#$/[\]]/g, '_')}`);
+                        // [FIX] Sanitized User ID for path
+                        const safeUid = sanitizeKey(userId);
+                        const channelsRef = ref(db, `captured_channels/${safeUid}`);
                         
-                        // Realtime listener
                         unsubscribe = onValue(channelsRef, (snapshot) => {
                             const data = snapshot.val();
                             const newChannels = [];
                             if (data) {
-                                // Convert Firebase object to an array of channels
                                 Object.keys(data).forEach(key => {
                                     newChannels.push({ id: key, ...data[key] });
                                 });
                             }
-                            setChannels(newChannels.reverse()); // Show newest first
+                            setChannels(newChannels.reverse());
                             setLoading(false);
                         }, (error) => {
-                            console.error("Firebase fetch error for captured channels:", error);
+                            console.error("Firebase fetch error:", error);
                             setLoading(false);
                         });
                     }
-                }, 200); // Check every 200ms until firebaseDB is ready
+                }, 200);
 
                 return () => {
                     clearInterval(checkFirebase);
-                    if (unsubscribe) unsubscribe(); // Cleanup listener on unmount
+                    if (unsubscribe) unsubscribe();
                 };
             }, [userId]);
 
@@ -273,7 +282,8 @@
                      return;
                  }
                  const { db, ref, push } = window.firebaseDB;
-                 const channelsRef = ref(db, `captured_channels/${userId.replace(/[.#$/[\]]/g, '_')}`);
+                 const safeUid = sanitizeKey(userId);
+                 const channelsRef = ref(db, `captured_channels/${safeUid}`);
                  
                  push(channelsRef, {
                     url: channelData.url,
@@ -299,7 +309,6 @@
                 setIsAuthenticating(true);
                 setError(null);
                 
-                // Ensure auth is ready
                 if (!window.firebaseAuth) {
                      setTimeout(handleSignIn, 500);
                      return;
@@ -373,7 +382,7 @@
         // --- Component: Lecture Player (Modal/Page) ---
         const LecturePlayer = ({ course, initialLecture, notes, onSaveNote, onClose }) => {
             const [currentLecture, setCurrentLecture] = useState(() => initialLecture || course.chapters?.[0]?.lectures?.[0] || null);
-            const [activeTab, setActiveTab] = useState('CURRICULUM'); // 'CURRICULUM' | 'NOTE'
+            const [activeTab, setActiveTab] = useState('CURRICULUM');
             const [noteContent, setNoteContent] = useState('');
             const [isSaving, setIsSaving] = useState(false);
 
@@ -382,12 +391,15 @@
                 return () => document.body.style.overflow = 'unset';
             }, []);
 
-            // Load note when lecture changes
+            // [FIX] Note Loading Logic
+            // notes 전체가 변경될 때마다 로딩하면, 타이핑 중인 글이 DB 데이터로 덮어씌워지는 문제가 발생함.
+            // 따라서 'currentLecture'가 변경될 때만 로딩하도록 의존성 배열을 수정함.
             useEffect(() => {
                 if (currentLecture && currentLecture.videoId) {
-                    setNoteContent(notes[currentLecture.videoId] || '');
+                    const key = sanitizeKey(currentLecture.videoId);
+                    setNoteContent(notes[key] || '');
                 }
-            }, [currentLecture, notes]);
+            }, [currentLecture]); // 'notes' 제거 -> 최초 로딩 시에만 반영
 
             const handleLaunchVideo = () => {
                 if (!currentLecture || !currentLecture.videoId) return;
@@ -409,7 +421,8 @@
             };
 
             const hasNote = (videoId) => {
-                return notes[videoId] && notes[videoId].trim().length > 0;
+                const key = sanitizeKey(videoId);
+                return notes[key] && notes[key].trim().length > 0;
             };
 
             if (!currentLecture) return null;
@@ -620,6 +633,7 @@
         };
 
         // --- Component: Knowledge Slot Machine ---
+        // (Omitted for brevity as no logic changed here, but ensuring it's in final output implicitly by structure)
         const KnowledgeSlotMachine = ({ courses, onRecommend, onClose }) => {
             const [isSpinning, setIsSpinning] = useState(false);
             const [slots, setSlots] = useState({ category: '???', action: '???' });
@@ -809,9 +823,11 @@
             useEffect(() => {
                 // When selecting a lecture, load the note
                 if (selectedNode?.type === 'lecture') {
-                    setEditContent(notes[selectedNode.data.videoId] || '');
+                    // [FIX] Use sanitized key
+                    const key = sanitizeKey(selectedNode.data.videoId);
+                    setEditContent(notes[key] || '');
                 }
-            }, [selectedNode, notes]);
+            }, [selectedNode]); // [FIX] Remove 'notes' to prevent overwrite
 
             const handleSaveInLibrary = () => {
                 if (selectedNode?.type === 'lecture') {
@@ -924,7 +940,7 @@
                                                                         icon={Icons.FileText}
                                                                         hasChildren={false}
                                                                         isSelected={selectedNode?.data === lecture}
-                                                                        isCompleted={notes[lecture.videoId] && notes[lecture.videoId].trim().length > 0}
+                                                                        isCompleted={hasNote(lecture.videoId)}
                                                                         onClick={() => handleSelect('lecture', lecture, course)}
                                                                     />
                                                                 ))}
@@ -1028,7 +1044,7 @@
                                                 </div>
                                             ))}
                                             {selectedNode.type === 'chapter' && selectedNode.data.lectures.map((l, i) => {
-                                                const hasLectureNote = notes[l.videoId] && notes[l.videoId].trim().length > 0;
+                                                const hasLectureNote = hasNote(l.videoId);
                                                 return (
                                                     <div key={i} onClick={() => handleSelect('lecture', l, selectedNode.parentCourse)} className="bg-white p-5 rounded-xl border border-toss-grey200 hover:border-toss-blue hover:shadow-md cursor-pointer transition-all relative overflow-hidden">
                                                         {hasLectureNote && (
@@ -1057,6 +1073,7 @@
         };
 
         // --- Component: Captured Channels List in Modal (NEW) ---
+        // (Omitted for brevity as no logic changed here, but ensuring it's in final output implicitly by structure)
         const CapturedChannelsListInModal = ({ channels = [], getCategoryInfo }) => {
              // Always render container to maintain layout, but show message if empty
              return (
@@ -1097,7 +1114,8 @@
              );
         };
 
-        // --- Component: Essence View (Updated to remove captured list) ---
+        // --- Component: Essence View ---
+        // (Omitted for brevity as no logic changed here, but ensuring it's in final output implicitly by structure)
         const EssenceView = ({ capturedChannelsLoading }) => {
             const [filter, setFilter] = useState('all');
             
@@ -1178,6 +1196,7 @@
         };
 
         // --- Component: Capture Modal for Essence Channels (Updated) ---
+        // (Omitted for brevity as no logic changed here, but ensuring it's in final output implicitly by structure)
         const CaptureModal = ({ categories, onSave, channels, getCategoryInfo, onClose }) => {
             const [url, setUrl] = useState('');
             const [category, setCategory] = useState(categories.find(c => c.id !== 'all')?.id || 'business'); // Default to a non-all category
@@ -1293,21 +1312,31 @@
 
             // Firebase 실시간 동기화 (Listen)
             useEffect(() => {
-                if (!user?.uid || !window.firebaseDB) return;
-                
-                const { db, ref, onValue } = window.firebaseDB;
-                // 사용자별 고유 경로 설정 (특수문자 제거)
-                const sanitizedUid = user.uid.replace(/[.#$/[\]]/g, '_');
-                const notesRef = ref(db, `notes/${sanitizedUid}`);
+                if (!user?.uid) return;
 
-                const unsubscribe = onValue(notesRef, (snapshot) => {
-                    const data = snapshot.val();
-                    setUserNotes(data || {}); // 데이터가 없으면 빈 객체
-                }, (error) => {
-                    console.error("Notes sync error:", error);
-                });
+                // [FIX] Listener Retry Logic
+                // 윈도우 로드 시점 차이로 firebaseDB가 준비되지 않았을 때 재시도하는 로직 추가
+                const connectDB = () => {
+                    if (window.firebaseDB) {
+                        const { db, ref, onValue } = window.firebaseDB;
+                        // 사용자별 고유 경로 설정 (특수문자 제거)
+                        const safeUid = sanitizeKey(user.uid);
+                        const notesRef = ref(db, `notes/${safeUid}`);
 
-                return () => unsubscribe();
+                        const unsubscribe = onValue(notesRef, (snapshot) => {
+                            const data = snapshot.val();
+                            setUserNotes(data || {}); // 데이터가 없으면 빈 객체
+                        }, (error) => {
+                            console.error("Notes sync error:", error);
+                        });
+                        return unsubscribe;
+                    } else {
+                        setTimeout(connectDB, 200); // 0.2초 뒤 재시도
+                    }
+                };
+
+                const unsubscribe = connectDB();
+                return () => { if(typeof unsubscribe === 'function') unsubscribe(); };
             }, [user]);
 
             const handleSaveNote = (videoId, content) => {
@@ -1317,8 +1346,10 @@
                 }
 
                 const { db, ref, set } = window.firebaseDB;
-                const sanitizedUid = user.uid.replace(/[.#$/[\]]/g, '_');
-                const noteRef = ref(db, `notes/${sanitizedUid}/${videoId}`);
+                const safeUid = sanitizeKey(user.uid);
+                // [FIX] Use sanitized videoId key
+                const safeVideoId = sanitizeKey(videoId);
+                const noteRef = ref(db, `notes/${safeUid}/${safeVideoId}`);
 
                 // Firebase에 데이터 저장 (set은 덮어쓰기)
                 set(noteRef, content)
